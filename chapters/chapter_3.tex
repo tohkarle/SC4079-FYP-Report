@@ -8,7 +8,7 @@ In the redesigned workflow, when a user submits a new recording and a correspond
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{figures/image4.png}
+  \includegraphics[width=0.7\textwidth]{figures/system_integration_transcript_indexing_pipeline.png}
   \caption{System integration: transcript indexing pipeline}
   \label{fig:system-integration}
 \end{figure} 
@@ -19,7 +19,7 @@ During indexing, raw speech-to-text transcripts in SubRip (SRT) format are parse
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image5.png}
+  \includegraphics[width=1.0\textwidth]{figures/indexing_pipeline_processing_chunking_and_embedding_stages.png}
   \caption{Indexing pipeline: processing, chunking, and embedding stages}
   \label{fig:indexing-pipeline}
 \end{figure} 
@@ -28,14 +28,14 @@ During querying, user questions are transformed into embeddings, used to retriev
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.54\textwidth]{figures/image6.png}
+  \includegraphics[width=0.54\textwidth]{figures/query_phase_retrieval_and_response_generation.png}
   \caption{Query phase: retrieval and response generation}
   \label{fig:query-workflow}
 \end{figure} 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image7.png}
+  \includegraphics[width=1.0\textwidth]{figures/rag_pipeline_query_to_response_architecture.png}
   \caption{RAG pipeline: query-to-response architecture}
   \label{fig:rag-pipeline}
 \end{figure}
@@ -47,7 +47,7 @@ At query time, the user question is first embedded using the same embedding mode
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image8.png}
+  \includegraphics[width=1.0\textwidth]{figures/hybrid_retrieval_multi_signal_fusion_and_reranking.png}
   \caption{Hybrid retrieval: multi-signal fusion and reranking}
   \label{fig:hybrid-retrieval}
 \end{figure}
@@ -65,7 +65,7 @@ To enable systematic evaluation, a dedicated pipeline generates question--answer
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{figures/image9.png}
+  \includegraphics[width=0.7\textwidth]{figures/dataset_generation_qa_pair_creation_from_transcripts.png}
   \caption{Dataset generation: QA pair creation from transcripts}
   \label{fig:dataset-generation}
 \end{figure}
@@ -75,7 +75,7 @@ Figure \ref{fig:evaluation-pipeline} shows the evaluation architecture, which mi
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image10.png}
+  \includegraphics[width=1.0\textwidth]{figures/evaluation_pipeline_retrieval_and_generation_metrics.png}
   \caption{Evaluation pipeline: retrieval and generation metrics}
   \label{fig:evaluation-pipeline}
 \end{figure}
@@ -87,7 +87,7 @@ A separate benchmarking pipeline compares the RAG-based system against a pure LL
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image11.png}
+  \includegraphics[width=1.0\textwidth]{figures/benchmarking_rag_vs_pure_llm_comparison.png}
   \caption{Benchmarking: RAG vs. pure LLM comparison}
   \label{fig:speed-benchmark}
 \end{figure}

@@ -18,7 +18,7 @@ The grouping algorithm aggregates small SRT chunks into larger context windows s
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/figure62.png}
+  \includegraphics[width=1.0\textwidth]{figures/context_window_grouping_function_signature_with_metadata_tracking.png}
   \caption{Context window grouping function signature with metadata tracking}
   \label{fig:fig62}
 \end{figure}
@@ -29,7 +29,7 @@ Figure \ref{fig:fig64} illustrates the transformation pipeline from raw SRT tran
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/figure64.png}
+  \includegraphics[width=1.0\textwidth]{figures/example_transformation_from_raw_srt_transcript_chunks_to_a_grouped_win.png}
   \caption{Example transformation from raw SRT transcript chunks to a grouped window with temporal metadata}
   \label{fig:fig64}
 \end{figure}
@@ -40,7 +40,7 @@ The QA generation leverages DeepSeek's chat API through LangChain's OpenAI-compa
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/figure68.png}
+  \includegraphics[width=1.0\textwidth]{figures/langchain_pipe_syntax_for_qa_generation_chain.png}
   \caption{LangChain pipe syntax for QA generation chain}
   \label{fig:fig68}
 \end{figure}
@@ -49,7 +49,7 @@ The LangChain pipe operator chains three components: the prompt template, the LL
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image47.png}
+  \includegraphics[width=1.0\textwidth]{figures/llm_api_call_for_qa_pair_generation_with_temperature_0_7.png}
   \caption{LLM API call for QA pair generation with temperature 0.7}
   \label{fig:fig47}
 \end{figure}
@@ -60,7 +60,7 @@ The generation prompt template specifies requirements for question-answer pairs.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image48.png}
+  \includegraphics[width=1.0\textwidth]{figures/qa_generation_prompt_template_with_requirements_and_format.png}
   \caption{QA generation prompt template with requirements and format}
   \label{fig:fig48}
 \end{figure}
@@ -77,7 +77,7 @@ Figure \ref{fig:fig49} shows an example of the ground truth JSON format:
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image49.png}
+  \includegraphics[width=1.0\textwidth]{figures/ground_truth_json_format_example_with_timestamps.png}
   \caption{Ground truth JSON format example with timestamps}
   \label{fig:fig49}
 \end{figure}
@@ -115,7 +115,7 @@ Definition: Proportion of queries where at least one retrieved chunk has tempora
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image51.png}
+  \includegraphics[width=1.0\textwidth]{figures/hit_rate_formula_for_retrieval_evaluation.png}
   \caption{Hit Rate formula for retrieval evaluation}
   \label{fig:fig51}
 \end{figure}
@@ -124,7 +124,7 @@ Hit Rate is computed through temporal overlap detection between retrieved chunks
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/figure73.png}
+  \includegraphics[width=1.0\textwidth]{figures/interval_intersection_algorithm_for_retrieval_relevance_checking.png}
   \caption{Interval intersection algorithm for retrieval relevance checking}
   \label{fig:fig73}
 \end{figure}
@@ -137,7 +137,7 @@ Definition: Average of reciprocal ranks of the first relevant result, as illustr
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image52.png}
+  \includegraphics[width=1.0\textwidth]{figures/mean_reciprocal_rank_mrr_formula_and_definition.png}
   \caption{Mean Reciprocal Rank (MRR) formula and definition}
   \label{fig:fig52}
 \end{figure}
@@ -156,7 +156,7 @@ Definition: Harmonic mean of precision and recall based on token-level overlap b
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image53.png}
+  \includegraphics[width=1.0\textwidth]{figures/f1_score_calculation_with_precision_and_recall.png}
   \caption{F1 score calculation with precision and recall}
   \label{fig:fig53}
 \end{figure}
@@ -165,7 +165,7 @@ F1 Score computation requires token-level comparison between generated and groun
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/figure76.png}
+  \includegraphics[width=1.0\textwidth]{figures/text_preprocessing_for_token_level_comparison.png}
   \caption{Text preprocessing for token-level comparison}
   \label{fig:fig76}
 \end{figure}
@@ -176,7 +176,7 @@ Figure \ref{fig:fig77} shows the F1 computation using Counter intersection:
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/figure77.png}
+  \includegraphics[width=1.0\textwidth]{figures/precision_recall_and_harmonic_mean_calculation_with_counter_intersecti.png}
   \caption{Precision, recall, and harmonic mean calculation with Counter intersection}
   \label{fig:fig77}
 \end{figure}
@@ -193,7 +193,7 @@ Definition: Binary semantic correctness evaluated by an LLM judge, assessing whe
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image54.png}
+  \includegraphics[width=1.0\textwidth]{figures/llm_judge_prompt_template_for_semantic_correctness_evaluation.png}
   \caption{LLM judge prompt template for semantic correctness evaluation}
   \label{fig:fig54}
 \end{figure}
@@ -217,7 +217,7 @@ This separation enables precise failure attribution. Figure \ref{fig:fig57} illu
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image57.png}
+  \includegraphics[width=1.0\textwidth]{figures/retrieval_failure_scenario_diagnostic_example.png}
   \caption{Retrieval failure scenario diagnostic example}
   \label{fig:fig57}
 \end{figure}
@@ -230,7 +230,7 @@ Figure \ref{fig:fig58} shows Scenario 2 (generation failure):
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image58.png}
+  \includegraphics[width=1.0\textwidth]{figures/generation_failure_scenario_with_successful_retrieval.png}
   \caption{Generation failure scenario with successful retrieval}
   \label{fig:fig58}
 \end{figure}
@@ -243,7 +243,7 @@ Figure \ref{fig:fig59} illustrates Scenario 3 (perfect performance):
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image59.png}
+  \includegraphics[width=1.0\textwidth]{figures/perfect_performance_scenario_for_both_retrieval_and_generation.png}
   \caption{Perfect performance scenario for both retrieval and generation}
   \label{fig:fig59}
 \end{figure}  
@@ -262,7 +262,7 @@ LLM services cache recently seen prompts to improve efficiency \cite{openai_prom
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image60.png}
+  \includegraphics[width=1.0\textwidth]{figures/interleaved_execution_pattern_for_unbiased_speed_benchmarking.png}
   \caption{Interleaved execution pattern for unbiased speed benchmarking}
   \label{fig:fig60}
 \end{figure}
@@ -381,7 +381,7 @@ Figure \ref{fig:fig64} shows a detailed success case:
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image64.png}
+  \includegraphics[width=1.0\textwidth]{figures/detailed_success_case_example_with_perfect_retrieval_and_generation.png}
   \caption{Detailed success case example with perfect retrieval and generation}
   \label{fig:fig64}
 \end{figure}
@@ -403,7 +403,7 @@ Figure \ref{fig:fig65} shows a failure case:
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image65.png}
+  \includegraphics[width=1.0\textwidth]{figures/failure_case_example_with_retrieval_success_but_generation_error.png}
   \caption{Failure case example with retrieval success but generation error}
   \label{fig:fig65}
 \end{figure}
@@ -425,7 +425,7 @@ Figure \ref{fig:fig66} illustrates a false negative example:
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image66.png}
+  \includegraphics[width=1.0\textwidth]{figures/false_negative_example_with_more_specific_generated_answer.png}
   \caption{False negative example with more specific generated answer}
   \label{fig:fig66}
 \end{figure}

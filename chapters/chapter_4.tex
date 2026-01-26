@@ -46,7 +46,7 @@ The SRT parser implementation converts SRT format subtitle files into structured
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image18.png}
+  \includegraphics[width=1.0\textwidth]{figures/srt_input_format_with_sequence_numbers_and_timestamps.png}
   \caption{SRT input format with sequence numbers and timestamps}
   \label{fig:fig18}
 \end{figure}
@@ -55,7 +55,7 @@ The parser produces structured output, as shown in Figure \ref{fig:fig19}:
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image19.png}
+  \includegraphics[width=1.0\textwidth]{figures/parsed_srt_structure_with_speaker_metadata_extraction.png}
   \caption{Parsed SRT structure with speaker metadata extraction}
   \label{fig:fig19}
 \end{figure}
@@ -76,7 +76,7 @@ Small SRT chunks are merged to create appropriately sized segments for embedding
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image20.png}
+  \includegraphics[width=1.0\textwidth]{figures/token_based_merging_algorithm_for_chunk_size_optimization.png}
   \caption{Token-based merging algorithm for chunk size optimization}
   \label{fig:fig20}
 \end{figure}
@@ -87,7 +87,7 @@ The final stage converts parsed chunks into LangChain Document objects, as shown
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image22.png}
+  \includegraphics[width=1.0\textwidth]{figures/langchain_document_object_creation_with_chunk_metadata.png}
   \caption{LangChain Document object creation with chunk metadata}
   \label{fig:fig22}
 \end{figure}
@@ -145,7 +145,7 @@ Figure \ref{fig:fig24f} shows the document processing pipeline for a single tran
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure24f.png}
+  \includegraphics[width=1.0\textwidth]{document_processing_pipeline.png}
   \caption{Document processing pipeline}
   \label{fig:fig24f}
 \end{figure}
@@ -158,7 +158,7 @@ Embedding generation is the most computationally expensive component of the inde
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure25d.png}
+  \includegraphics[width=1.0\textwidth]{vector_store_creation_from_documents.png}
   \caption{Vector store creation from documents}
   \label{fig:fig25d}
 \end{figure}
@@ -167,7 +167,7 @@ Figure \ref{fig:fig25e} demonstrates incremental document addition to an existin
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure25e.png}
+  \includegraphics[width=1.0\textwidth]{incremental_document_addition.png}
   \caption{Incremental document addition}
   \label{fig:fig25e}
 \end{figure}
@@ -180,7 +180,7 @@ Chroma stores all embeddings, metadata, and collection configuration in a single
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure26a.png}
+  \includegraphics[width=1.0\textwidth]{chromadb_storage_directory_structure.png}
   \caption{ChromaDB storage directory structure}
   \label{fig:fig26a}
 \end{figure}
@@ -200,7 +200,7 @@ The core vector search function, shown in Figure \ref{fig:fig27a}, provides a un
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure27a.png}
+  \includegraphics[width=1.0\textwidth]{vector_search_core_function_showing_semantic_retrieval_with_optional_c.png}
   \caption{Vector search core function showing semantic retrieval with optional Chroma metadata filtering}
   \label{fig:fig27a}
 \end{figure}
@@ -209,7 +209,7 @@ Figure \ref{fig:fig27b} demonstrates how transcript filters are constructed for 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure27b.png}
+  \includegraphics[width=1.0\textwidth]{chroma_metadata_filter_construction_for_transcript_scoping.png}
   \caption{Chroma metadata filter construction for transcript scoping}
   \label{fig:fig27b}
 \end{figure}
@@ -228,7 +228,7 @@ Figure \ref{fig:fig28a} shows the default tokenizer implementation, which applie
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure28a.png}
+  \includegraphics[width=1.0\textwidth]{bm25_tokenization_function_using_lowercase_split.png}
   \caption{BM25 tokenization function using lowercase split}
   \label{fig:fig28a}
 \end{figure}
@@ -239,7 +239,7 @@ The BM25 index is constructed once and persisted alongside the vector store. It 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure28b.png}
+  \includegraphics[width=1.0\textwidth]{bm25_index_initialization_with_corpus_tokenization.png}
   \caption{BM25 index initialization with corpus tokenization}
   \label{fig:fig28b}
 \end{figure}
@@ -250,7 +250,7 @@ At query time, the BM25 retriever tokenizes the input query using the same token
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure28c.png}
+  \includegraphics[width=1.0\textwidth]{bm25_query_tokenization_and_metadata_filtering.png}
   \caption{BM25 query tokenization and metadata filtering}
   \label{fig:fig28c}
 \end{figure}
@@ -261,7 +261,7 @@ After computing BM25 scores for candidate documents, the retriever ranks results
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure28d.png}
+  \includegraphics[width=1.0\textwidth]{bm25_scoring_and_top_k_ranking.png}
   \caption{BM25 scoring and top-k ranking}
   \label{fig:fig28d}
 \end{figure}
@@ -270,7 +270,7 @@ Once the top-k document indices and scores are determined, the retriever constru
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure28e.png}
+  \includegraphics[width=1.0\textwidth]{bm25_result_document_construction.png}
   \caption{BM25 result document construction}
   \label{fig:fig28e}
 \end{figure}
@@ -281,7 +281,7 @@ To avoid rebuilding the BM25 index on every system restart, the retriever implem
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure28f.png}
+  \includegraphics[width=1.0\textwidth]{bm25_index_persistence_via_pickle_serialization.png}
   \caption{BM25 index persistence via pickle serialization}
   \label{fig:fig28f}
 \end{figure}
@@ -298,7 +298,7 @@ The phonetic indexer is implemented using a SQLite-backed database with a single
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure29a.png}
+  \includegraphics[width=1.0\textwidth]{phonetic_index_database_schema_with_sqlite_table_and_indices.png}
   \caption{Phonetic index database schema with SQLite table and indices}
   \label{fig:fig29a}
 \end{figure}
@@ -311,7 +311,7 @@ Before phonetic encoding, the indexer tokenizes input text by extracting alphabe
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure29b.png}
+  \includegraphics[width=1.0\textwidth]{phonetic_word_tokenization_and_filtering.png}
   \caption{Phonetic word tokenization and filtering}
   \label{fig:fig29b}
 \end{figure}
@@ -322,7 +322,7 @@ Figure \ref{fig:fig29c} shows the core phonetic encoding logic, which applies th
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure29c.png}
+  \includegraphics[width=1.0\textwidth]{double_metaphone_phonetic_encoding.png}
   \caption{Double Metaphone phonetic encoding}
   \label{fig:fig29c}
 \end{figure}
@@ -332,7 +332,7 @@ The Double Metaphone algorithm is particularly well-suited for ASR error handlin
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image31.png}
+  \includegraphics[width=1.0\textwidth]{figures/phonetic_encoding_examples_for_homophone_matching.png}
   \caption{Phonetic encoding examples for homophone matching}
   \label{fig:fig31}
 \end{figure}
@@ -343,7 +343,7 @@ The index\_documents method, shown in Figure \ref{fig:fig29d}, constructs the ph
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure29d.png}
+  \includegraphics[width=1.0\textwidth]{phonetic_index_building_with_batch_insertion.png}
   \caption{Phonetic index building with batch insertion}
   \label{fig:fig29d}
 \end{figure}
@@ -356,7 +356,7 @@ At query time, the phonetic indexer encodes the query into phonetic codes using 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure29e.png}
+  \includegraphics[width=1.0\textwidth]{phonetic_retrieval_sql_query_with_transcript_filtering.png}
   \caption{Phonetic retrieval SQL query with transcript filtering}
   \label{fig:fig29e}
 \end{figure}
@@ -365,7 +365,7 @@ Figure \ref{fig:fig29f} shows the unfiltered case, where no transcript restricti
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure29f.png}
+  \includegraphics[width=1.0\textwidth]{phonetic_retrieval_sql_query_without_filtering.png}
   \caption{Phonetic retrieval SQL query without filtering}
   \label{fig:fig29f}
 \end{figure}
@@ -376,7 +376,7 @@ The phonetic\_indexer.retrieve method returns a list of (chunk\_id, overlap\_cou
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure29g.png}
+  \includegraphics[width=1.0\textwidth]{phonetic_score_conversion_and_document_retrieval.png}
   \caption{Phonetic score conversion and document retrieval}
   \label{fig:fig29g}
 \end{figure}
@@ -395,7 +395,7 @@ Figure \ref{fig:fig30a} shows the rare token detection logic, which uses the Zip
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure30a.png}
+  \includegraphics[width=1.0\textwidth]{rare_token_detection_using_zipf_frequency.png}
   \caption{Rare token detection using Zipf frequency}
   \label{fig:fig30a}
 \end{figure}
@@ -408,7 +408,7 @@ Figure \ref{fig:fig30b} demonstrates the extraction of rare tokens from the inpu
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure30b.png}
+  \includegraphics[width=1.0\textwidth]{extracting_rare_tokens_from_query.png}
   \caption{Extracting rare tokens from query}
   \label{fig:fig30b}
 \end{figure}
@@ -421,7 +421,7 @@ Unlike vector search and BM25, which return ranked candidate lists, fuzzy matchi
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure30c.png}
+  \includegraphics[width=1.0\textwidth]{fetching_candidate_document_pool_for_fuzzy_matching.png}
   \caption{Fetching candidate document pool for fuzzy matching}
   \label{fig:fig30c}
 \end{figure}
@@ -434,14 +434,14 @@ The core fuzzy scoring algorithm, shown in Figures \ref{fig:fig30d} and \ref{fig
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure30d.png}
+  \includegraphics[width=1.0\textwidth]{fuzzy_scoring_algorithm_setup_and_initialization.png}
   \caption{Fuzzy scoring algorithm - setup and initialization}
   \label{fig:fig30d}
 \end{figure}
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure30e.png}
+  \includegraphics[width=1.0\textwidth]{fuzzy_scoring_algorithm_nested_loop_with_rapidfuzz_ratio.png}
   \caption{Fuzzy scoring algorithm - nested loop with RapidFuzz ratio}
   \label{fig:fig30e}
 \end{figure}
@@ -456,7 +456,7 @@ After computing fuzzy scores for all candidate documents, the algorithm sorts th
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure30f.png}
+  \includegraphics[width=1.0\textwidth]{fuzzy_top_k_selection_and_ranking.png}
   \caption{Fuzzy top-k selection and ranking}
   \label{fig:fig30f}
 \end{figure}
@@ -511,7 +511,7 @@ The RRF algorithm combines rankings from all four retrieval signals into a unifi
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/image35.png}
+  \includegraphics[width=1.0\textwidth]{figures/reciprocal_rank_fusion_weights_for_hybrid_retrieval_signals.png}
   \caption{Reciprocal Rank Fusion weights for hybrid retrieval signals}
   \label{fig:fig35}
 \end{figure}
@@ -538,7 +538,7 @@ At reranking time, the system constructs an HTTP POST request containing the que
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure37a.png}
+  \includegraphics[width=1.0\textwidth]{request_payload_preparation.png}
   \caption{Request payload preparation}
   \label{fig:fig37a}
 \end{figure}
@@ -549,7 +549,7 @@ The reranker service returns a JSON response containing a list of results, where
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure38a.png}
+  \includegraphics[width=1.0\textwidth]{expected_response_format.png}
   \caption{Expected response format}
   \label{fig:fig38a}
 \end{figure}
@@ -558,7 +558,7 @@ Although the reranker service typically returns results pre-sorted by relevance 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure38b.png}
+  \includegraphics[width=1.0\textwidth]{sorting_by_relevance_score.png}
   \caption{Sorting by relevance score}
   \label{fig:fig38b}
 \end{figure}
@@ -569,7 +569,7 @@ After sorting, the system maps the reranked indices back to the original Documen
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure38c.png}
+  \includegraphics[width=1.0\textwidth]{mapping_results_to_original_documents.png}
   \caption{Mapping results to original documents}
   \label{fig:fig38c}
 \end{figure}
@@ -578,7 +578,7 @@ Finally, the top\_n limit is enforced locally by slicing the reranked\_docs list
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure38d.png}
+  \includegraphics[width=1.0\textwidth]{top_n_selection.png}
   \caption{Top-n selection}
   \label{fig:fig38d}
 \end{figure}
@@ -595,7 +595,7 @@ The context formatting layer transforms raw Document objects into a structured t
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure40a.png}
+  \includegraphics[width=1.0\textwidth]{chunk_formatting_with_individual_metadata_headers.png}
   \caption{Chunk formatting with individual metadata headers}
   \label{fig:fig40a}
 \end{figure}
@@ -604,7 +604,7 @@ Figure \ref{fig:fig40b} shows an example of the output format for a single docum
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure40b.png}
+  \includegraphics[width=1.0\textwidth]{output_format_example.png}
   \caption{Output Format Example}
   \label{fig:fig40b}
 \end{figure}
@@ -617,7 +617,7 @@ In addition to formatting context for the LLM, the system provides a citation fo
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure40d.png}
+  \includegraphics[width=1.0\textwidth]{citation_formatting_for_user_transparency_and_source_attribution.png}
   \caption{Citation formatting for user transparency and source attribution}
   \label{fig:fig40d}
 \end{figure}
@@ -634,7 +634,7 @@ Figure \ref{fig:fig42a} shows the RAG system message template, which establishes
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure42a.png}
+  \includegraphics[width=1.0\textwidth]{rag_system_message_template_defining_assistant_role_and_constraints.png}
   \caption{RAG system message template defining assistant role and constraints}
   \label{fig:fig42a}
 \end{figure}
@@ -647,7 +647,7 @@ Figure \ref{fig:fig42b} demonstrates the human message template, which contains 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure42b.png}
+  \includegraphics[width=1.0\textwidth]{human_message_template_with_reasoning_suppression_directive.png}
   \caption{Human message template with reasoning suppression directive}
   \label{fig:fig42b}
 \end{figure}
@@ -658,7 +658,7 @@ Figure \ref{fig:fig42c} shows how the system message and human message templates
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure42c.png}
+  \includegraphics[width=1.0\textwidth]{complete_rag_chat_prompt_construction_with_history_support.png}
   \caption{Complete RAG chat prompt construction with history support}
   \label{fig:fig42c}
 \end{figure}
@@ -671,7 +671,7 @@ Figure \ref{fig:fig42d} illustrates how chat history is structured using LangCha
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure42d.png}
+  \includegraphics[width=1.0\textwidth]{chat_history_structure_for_multi_turn_conversation_support.png}
   \caption{Chat history structure for multi-turn conversation support}
   \label{fig:fig42d}
 \end{figure}
@@ -684,7 +684,7 @@ Figure \ref{fig:fig43d} demonstrates streaming invocation using the chain.stream
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figure43d.png}
+  \includegraphics[width=1.0\textwidth]{streaming_response_handling_for_real_time_token_display.png}
   \caption{Streaming response handling for real-time token display}
   \label{fig:fig43d}
 \end{figure}
