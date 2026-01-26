@@ -16,13 +16,6 @@ Ground truth evaluation datasets were generated automatically using an LLM-based
 
 The grouping algorithm aggregates small SRT chunks into larger context windows suitable for LLM processing. The grouping process employs a greedy first-fit algorithm that iterates through SRT chunks sequentially, accumulating text until a maximum character threshold is reached.
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{figures/context_window_grouping_function_signature_with_metadata_tracking.png}
-  \caption{Context window grouping function signature with metadata tracking}
-  \label{fig:fig62}
-\end{figure}
-
 The algorithm maintains temporal boundaries by tracking the start and end timestamps of each grouped window, ensuring that generated questions can be linked back to specific time ranges in the source transcript. This temporal metadata is critical for subsequent retrieval evaluation.
 
 Figure \ref{fig:fig64} illustrates the transformation pipeline from raw SRT transcripts to a grouped window:
@@ -45,14 +38,7 @@ The QA generation leverages DeepSeek's chat API through LangChain's OpenAI-compa
   \label{fig:fig68}
 \end{figure}
 
-The LangChain pipe operator chains three components: the prompt template, the LLM, and the string output parser. The temperature of 0.7 was selected to balance creativity in question formulation with factual grounding. Lower temperatures (e.g., 0.2) produced repetitive questions, while higher temperatures (e.g., 1.0) occasionally generated questions not directly answerable from the context. Figure \ref{fig:fig47} shows the LLM generation:
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{figures/llm_api_call_for_qa_pair_generation_with_temperature_0_7.png}
-  \caption{LLM API call for QA pair generation with temperature 0.7}
-  \label{fig:fig47}
-\end{figure}
+The LangChain pipe operator chains three components: the prompt template, the LLM, and the string output parser. The temperature of 0.7 was selected to balance creativity in question formulation with factual grounding. Lower temperatures (e.g., 0.2) produced repetitive questions, while higher temperatures (e.g., 1.0) occasionally generated questions not directly answerable from the context.
 
 \textbf{5.1.1.3 Generation Prompt Template}
 
@@ -377,13 +363,13 @@ The divergence between Accuracy and F1 (0.789 vs 0.553) indicates that the LLM f
 
 \textbf{5.2.1.4 Detailed Example: Success Case}
 
-Figure \ref{fig:fig64} shows a detailed success case:
+Figure \ref{fig:fig64b} shows a detailed success case:
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=1.0\textwidth]{figures/detailed_success_case_example_with_perfect_retrieval_and_generation.png}
   \caption{Detailed success case example with perfect retrieval and generation}
-  \label{fig:fig64}
+  \label{fig:fig64b}
 \end{figure}
 
 \textbf{Analysis:}

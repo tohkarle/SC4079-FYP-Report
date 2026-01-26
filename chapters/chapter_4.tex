@@ -81,63 +81,15 @@ Small SRT chunks are merged to create appropriately sized segments for embedding
   \label{fig:fig20}
 \end{figure}
 
-\textbf{4.2.1.3 Document Creation and Metadata Schema}
-
-The final stage converts parsed chunks into LangChain Document objects, as shown in Figure \ref{fig:fig22}:\cite{langchain_document}
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{figures/langchain_document_object_creation_with_chunk_metadata.png}
-  \caption{LangChain Document object creation with chunk metadata}
-  \label{fig:fig22}
-\end{figure}
-
-Table \ref{tab:document-metadata-schema} shows the document metadata schema field descriptions:
-
-\begin{table}[H]
-  \centering
-  \begin{tabular}{|l|l|l|}
-    \hline
-    \textbf{Field} & \textbf{Type} & \textbf{Description} \\
-    \hline
-    chunk\_id & int & Sequential ID within transcript (0-indexed) \\
-    \hline
-    source & str & Original filename (e.g., "example\_transcript\_1.srt") \\
-    \hline
-    transcript\_id & str & Cleaned filename for metadata filtering \\
-    \hline
-    total\_chunks & int & Total number of chunks in source transcript \\
-    \hline
-    start\_time & str & Start timestamp in HH:MM:SS,mmm format \\
-    \hline
-    end\_time & str & End timestamp in HH:MM:SS,mmm format \\
-    \hline
-    sequence & int & Original SRT sequence number \\
-    \hline
-    speaker & str/None & Detected speaker name from SRT markers \\
-    \hline
-    chunk\_size\_tokens & int & Token count via TokenCounter \\
-    \hline
-    merged\_count & int & Number of original chunks merged ($\geq 1$) \\
-    \hline
-    overlap\_tokens & int & Tokens overlapping with previous chunk \\
-    \hline
-  \end{tabular}
-  \caption{Document metadata schema field descriptions}
-  \label{tab:document-metadata-schema}
-\end{table}
-
 \subsection{Embedding Generation and Vector Storage}
 
 \textbf{4.2.2.1 Global Unified Index Architecture}
 
-All transcript chunks are stored in a single, global vector store rather than maintaining separate indices per transcript. This architectural decision provides several key advantages: simplified index management (one collection instead of dozens), reduced memory overhead (shared vocabulary and model weights), support for cross-transcript semantic search when queries span multiple documents, and unified metadata-based filtering for transcript scoping. Metadata-based filtering enables efficient restriction of search results to specific transcripts without requiring separate indices, as demonstrated in Figure \ref{fig:fig27b} (shown in Section 4.2.3.1).
+All transcript chunks are stored in a single, global vector store rather than maintaining separate indices per transcript. This architectural decision provides several key advantages: simplified index management (one collection instead of dozens), reduced memory overhead (shared vocabulary and model weights), support for cross-transcript semantic search when queries span multiple documents, and unified metadata-based filtering for transcript scoping. Metadata-based filtering enables efficient restriction of search results to specific transcripts without requiring separate indices.
 
 \textbf{4.2.2.2 Embedding Service}
 
 The embedding functionality is implemented as a separate microservice, hosted via llama.cpp server. This separation from the main LLM service and reranker service enables independent scaling, resource allocation, and model versioning for each component.
-
-The embedding service communicates via HTTP POST requests to the /v1/embeddings endpoint, following the OpenAI embeddings API specification. LangChain's OpenAIEmbeddings wrapper abstracts this HTTP communication, providing methods like embed\_query() (for single-query embedding) and embed\_documents() (for batch document embedding).\cite{openai_embeddings_api,langchain_openai_embeddings} The llama.cpp server handles request batching internally, optimizing GPU utilization by processing multiple embeddings concurrently when batch sizes exceed single-request thresholds.
 
 \textbf{4.2.2.3 Transcript Processing}
 
@@ -176,7 +128,7 @@ LangChain's automatic batching mechanism abstracts the complexity of batch size 
 
 \textbf{4.2.2.5 ChromaDB Storage and Persistence}
 
-Chroma stores all embeddings, metadata, and collection configuration in a single SQLite database file (chroma.sqlite3) located in the persist directory.\cite{chroma_persistence_sqlite} Figure \ref{fig:fig26a} illustrates the directory structure, showing how the vector store, BM25 index, and phonetic index are co-located within the same storage hierarchy. This unified structure simplifies backup, replication, and deployment: copying the vector\_stores/global\_combined/ directory to another machine produces a fully functional index without requiring configuration changes or re-embedding.
+Chroma stores all embeddings, metadata, and collection configuration in a single SQLite database file located in the persist directory.\cite{chroma_persistence_sqlite} Figure \ref{fig:fig26a} illustrates the directory structure, showing how the vector store, BM25 index, and phonetic index are co-located within the same storage hierarchy. This unified structure simplifies backup, replication, and deployment: copying the vector\_stores/global\_combined/ directory to another machine produces a fully functional index without requiring configuration changes or re-embedding.
 
 \begin{figure}[H]
   \centering
@@ -205,22 +157,11 @@ The core vector search function, shown in Figure \ref{fig:fig27a}, provides a un
   \label{fig:fig27a}
 \end{figure}
 
-Figure \ref{fig:fig27b} demonstrates how transcript filters are constructed for the Chroma vector database. The system supports both single-transcript filtering using the \$eq operator and multi-transcript filtering using the \$in operator. This metadata-based filtering ensures efficient scoping of search results without requiring separate vector indices per transcript.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{chroma_metadata_filter_construction_for_transcript_scoping.png}
-  \caption{Chroma metadata filter construction for transcript scoping}
-  \label{fig:fig27b}
-\end{figure}
-
 Key advantages of vector search include robust handling of paraphrasing, synonym variation, and semantic similarity beyond surface-level keyword matching. It effectively captures conceptual relationships and topical relevance, making it particularly strong for queries that express intent in different words than the source transcript. However, vector search can struggle with proper nouns, rare technical terms, and exact keyword requirements, which motivates the complementary use of BM25 keyword search.
 
 \textbf{BM25 Search (Keyword)}
 
 BM25 implements probabilistic keyword-based retrieval using the BM25Okapi ranking function, a well-established algorithm in information retrieval that scores documents based on term frequency (TF) and inverse document frequency (IDF).\cite{robertson2009bm25,rank_bm25} Unlike semantic search, which relies on dense vector representations, BM25 performs exact lexical matching, making it particularly effective for queries containing proper nouns, technical terminology, product names, and specific keywords that must appear verbatim in retrieved chunks.
-
-The BM25 retrieval pipeline consists of five main stages: tokenization, index initialization, query processing, scoring and ranking, and persistence. Each stage is implemented as a modular component within the BM25Retriever class.
 
 \textbf{Tokenization Strategy}
 
@@ -244,9 +185,9 @@ The BM25 index is constructed once and persisted alongside the vector store. It 
   \label{fig:fig28b}
 \end{figure}
 
-\textbf{Query Processing and Metadata Filtering}
+\textbf{Querying, Scoring and Ranking}
 
-At query time, the BM25 retriever tokenizes the input query using the same tokenization logic applied during indexing to ensure consistency. The retrieval function supports optional metadata-based filtering to restrict results to specific transcripts, as demonstrated in Figure \ref{fig:fig28c}. When a filter is provided, the system first identifies document indices matching the specified metadata field and value (e.g., transcript\_id), then invokes the optimized get\_batch\_scores method to compute BM25 scores only for the filtered subset of documents. This selective scoring strategy significantly reduces computational cost when searching within a single transcript or small transcript subset, avoiding unnecessary score computation for out-of-scope documents.
+At query time, the BM25 retriever tokenizes the input query using the same tokenization logic applied during indexing to ensure consistency. The retrieval function supports optional metadata-based filtering to restrict results to specific transcripts, as demonstrated in Figure \ref{fig:fig28c}. The system first identifies document indices matching the specified metadata field and value, then invokes the optimized get\_batch\_scores method to compute BM25 scores only for the filtered subset of documents.
 
 \begin{figure}[H]
   \centering
@@ -255,55 +196,13 @@ At query time, the BM25 retriever tokenizes the input query using the same token
   \label{fig:fig28c}
 \end{figure}
 
-\textbf{Scoring and Ranking}
-
-After computing BM25 scores for candidate documents, the retriever ranks results by score in descending order and selects the top-k highest-scoring chunks, as shown in Figure \ref{fig:fig28d}. When metadata filtering is applied, the system sorts the filtered scores and returns the top-k results. Without filtering, it uses NumPy's argsort operation to efficiently identify the top-k document indices from the full score array. The BM25Okapi scoring function applies the standard BM25 formula with parameters k1=1.5 (controlling term frequency saturation) and b=0.75 (controlling document length normalization).\cite{robertson2009bm25,rank_bm25} These parameter values are widely used defaults in the information retrieval literature and provide a reasonable balance between precision and recall across diverse query types.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{bm25_scoring_and_top_k_ranking.png}
-  \caption{BM25 scoring and top-k ranking}
-  \label{fig:fig28d}
-\end{figure}
-
-Once the top-k document indices and scores are determined, the retriever constructs LangChain Document objects by copying the original document content and metadata, then appending the BM25 score as an additional metadata field, as illustrated in Figure \ref{fig:fig28e}. This metadata preservation ensures that downstream components (e.g., RRF fusion, rerankers) can access both the original chunk metadata (timestamps, speakers, transcript IDs) and the BM25 relevance score.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{bm25_result_document_construction.png}
-  \caption{BM25 result document construction}
-  \label{fig:fig28e}
-\end{figure}
-
-\textbf{Index Persistence}
-
-To avoid rebuilding the BM25 index on every system restart, the retriever implements pickle-based serialization for persistent storage, as shown in Figure \ref{fig:fig28f}. The save\_index method serializes the entire retriever state, including the document list, BM25 index structure, and tokenizer function, to disk. On subsequent system startups, the load\_index classmethod deserializes the saved state, enabling fast index loading without re-tokenizing the corpus or recomputing IDF weights. This persistence mechanism significantly reduces startup time for large document collections.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{bm25_index_persistence_via_pickle_serialization.png}
-  \caption{BM25 index persistence via pickle serialization}
-  \label{fig:fig28f}
-\end{figure}
+After computing BM25 scores for candidate documents, the retriever ranks results by score in descending order and selects the top-k highest-scoring chunks.
 
 Key advantages of BM25 search include strong performance on exact keyword queries, robust handling of proper nouns and technical terminology, and computational efficiency relative to neural retrieval models. BM25 excels when query terms must appear verbatim in the retrieved context, making it complementary to vector search, which prioritizes semantic similarity over exact lexical matches.
 
 \textbf{Phonetic Search (ASR Error Handling)}
 
 Phonetic search addresses a critical limitation of exact lexical matching in ASR-generated transcripts: proper nouns, technical terms, and rare vocabulary are frequently misrecognized by speech-to-text models, resulting in transcription errors that preserve phonetic similarity but differ in spelling. For example, a query for "Samsung" may fail to retrieve chunks where the ASR system transcribed the same spoken word as "Samson" or "Samsang." Since these variants share similar pronunciation, they should ideally be retrieved despite lexical differences. Phonetic search solves this problem by encoding words into phonetic representations using the Double Metaphone algorithm, enabling sound-alike matching that is robust to ASR transcription errors.\cite{black2021doublemetaphone,metaphone_pypi}
-
-\textbf{Database Schema and Index Structure}
-
-The phonetic indexer is implemented using a SQLite-backed database with a single primary table and three supporting indices, as shown in Figure \ref{fig:fig29a}. The phonetic\_codes table stores mappings from phonetic codes (e.g., "SMSNK" for "Samsung") to chunk IDs, transcript IDs, and original words. Each row represents one word in one chunk, encoded by its phonetic representation. The composite primary key on (phonetic\_code, chunk\_id, word) ensures that duplicate entries are automatically deduplicated during batch insertion. Three indices—idx\_phonetic\_code, idx\_transcript, and idx\_chunk\_id—enable fast lookup by phonetic code (the primary access pattern), filtering by transcript ID, and reverse lookup by chunk ID, respectively.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{phonetic_index_database_schema_with_sqlite_table_and_indices.png}
-  \caption{Phonetic index database schema with SQLite table and indices}
-  \label{fig:fig29a}
-\end{figure}
-
-This schema design prioritizes retrieval efficiency: queries typically access the index by phonetic code (e.g., "find all chunks containing code 'SMSNK'"), which is accelerated by the idx\_phonetic\_code index. The transcript\_id field supports metadata filtering, allowing the system to restrict phonetic search to a specific transcript or transcript set without scanning unrelated chunks. The word field preserves the original token for debugging and analysis, though it is not used in the core retrieval logic.
 
 \textbf{Tokenization and Word Filtering}
 
@@ -337,19 +236,6 @@ The Double Metaphone algorithm is particularly well-suited for ASR error handlin
   \label{fig:fig31}
 \end{figure}
 
-\textbf{Index Building and Batch Insertion}
-
-The index\_documents method, shown in Figure \ref{fig:fig29d}, constructs the phonetic index by iterating over all document chunks, encoding their content, and batch-inserting the resulting phonetic codes into the SQLite database. The force\_rebuild parameter allows the index to be cleared and rebuilt from scratch, useful when the tokenization logic or encoding algorithm changes. In normal operation, the indexer performs incremental updates by inserting only new documents, relying on the "INSERT OR IGNORE" SQL command to skip duplicate entries that match the primary key.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{phonetic_index_building_with_batch_insertion.png}
-  \caption{Phonetic index building with batch insertion}
-  \label{fig:fig29d}
-\end{figure}
-
-Batch insertion significantly improves indexing performance compared to row-by-row insertion, as it reduces the number of SQL transactions and database commits.
-
 \textbf{Query Processing and Metadata Filtering}
 
 At query time, the phonetic indexer encodes the query into phonetic codes using the same tokenize\_and\_encode method applied during indexing, then executes a SQL query to find all chunks containing any of the query codes. Figure \ref{fig:fig29e} shows the SQL query construction logic for the filtered case, where transcript IDs are provided. The query uses the IN operator to match any query code and any transcript ID, then groups results by chunk\_id to count the number of matching codes per chunk. Chunks with higher overlap counts are ranked higher, as they contain more phonetic matches with the query. The ORDER BY overlap\_count DESC clause ensures that the most relevant chunks appear first in the result list.
@@ -359,15 +245,6 @@ At query time, the phonetic indexer encodes the query into phonetic codes using 
   \includegraphics[width=1.0\textwidth]{phonetic_retrieval_sql_query_with_transcript_filtering.png}
   \caption{Phonetic retrieval SQL query with transcript filtering}
   \label{fig:fig29e}
-\end{figure}
-
-Figure \ref{fig:fig29f} shows the unfiltered case, where no transcript restriction is applied. The query structure is similar but omits the transcript\_id filter clause. Both queries support an optional LIMIT clause to restrict results to the top-k chunks, reducing result set size and improving response latency.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{phonetic_retrieval_sql_query_without_filtering.png}
-  \caption{Phonetic retrieval SQL query without filtering}
-  \label{fig:fig29f}
 \end{figure}
 
 \textbf{Score Conversion and Document Retrieval}
@@ -415,19 +292,6 @@ Figure \ref{fig:fig30b} demonstrates the extraction of rare tokens from the inpu
 
 For example, the query "Samsung phone meeting" would extract only "Samsung" as a rare token, while "phone" and "meeting" would be filtered out. This selective approach ensures that fuzzy matching focuses computational resources on the terms most likely to benefit from error correction.
 
-\textbf{Fetching the Candidate Document Pool}
-
-Unlike vector search and BM25, which return ranked candidate lists, fuzzy matching operates over a full document pool within the specified scope (e.g., filtered by transcript ID). Figure \ref{fig:fig30c} shows how the candidate pool is fetched using the \_fetch\_full\_document\_pool utility, which retrieves all documents matching the optional Chroma metadata filter. This broad candidate set is necessary because fuzzy matching does not rely on pre-ranked results from other retrievers; instead, it independently computes edit-distance scores for all documents in scope.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{fetching_candidate_document_pool_for_fuzzy_matching.png}
-  \caption{Fetching candidate document pool for fuzzy matching}
-  \label{fig:fig30c}
-\end{figure}
-
-The \_fetch\_full\_document\_pool helper function uses a large top-k value (e.g., 10,000) to retrieve all documents within the filter scope, effectively treating the similarity\_search call as a "fetch all" operation. While this approach may seem inefficient, it is mitigated by the fact that fuzzy matching only activates when rare tokens are present, which occurs in a minority of queries.
-
 \textbf{Fuzzy Scoring Algorithm: Pairwise Edit-Distance Computation}
 
 The core fuzzy scoring algorithm, shown in Figures \ref{fig:fig30d} and \ref{fig:fig30e}, iterates over all candidate documents and computes the maximum edit-distance similarity between query rare tokens and document tokens. For each document, the algorithm tokenizes the document content, then performs a nested loop over query rare tokens and document tokens, computing the fuzzy ratio using the RapidFuzz library. The fuzz.ratio function returns an integer score in the range [0, 100] representing percentage similarity, which is normalized to a [0, 1] scale by dividing by 100. The maximum score across all query-document token pairs is retained as the document's fuzzy score.
@@ -445,8 +309,6 @@ The core fuzzy scoring algorithm, shown in Figures \ref{fig:fig30d} and \ref{fig
   \caption{Fuzzy scoring algorithm - nested loop with RapidFuzz ratio}
   \label{fig:fig30e}
 \end{figure}
-
-An important optimization is the early exit logic: if the maximum score reaches 0.95 (indicating a near-perfect match), the inner loops terminate immediately, avoiding redundant comparisons. This optimization significantly reduces computation time when high-quality matches are found early in the loop. Only documents with fuzzy scores exceeding the configured threshold (default: 0.8) are included in the result set, filtering out low-quality matches that are unlikely to be relevant.
 
 The RapidFuzz library is used for edit-distance computation because it provides highly optimized implementations of the Levenshtein distance algorithm, significantly outperforming pure Python alternatives.\cite{rapidfuzz_docs,levenshtein1965} Example fuzzy ratios include: "Samsung" vs "Samsang" (93\% similarity), "Samsung" vs "Samson" (86\% similarity), and "GPT4" vs "GPT-4" (80\% similarity).
 
@@ -468,8 +330,6 @@ Phonetic search is applied broadly to all tokens of length $\geq$ 3 characters, 
 \textbf{Integration: Parallel Multi-Signal Retrieval}
 
 The four retrieval methods described above are executed in parallel during Stage 1 of the retrieval pipeline. Parallel execution is feasible because the four signals operate independently: each method accesses its own index and produces a ranked list of documents without requiring input from other retrievers. This independence enables concurrent execution, reducing overall retrieval latency compared to sequential execution.
-
-In practice, Python's Global Interpreter Lock (GIL) limits the effectiveness of thread-based parallelism for CPU-bound tasks, so the current implementation executes methods sequentially but is structured to support parallel execution via multiprocessing or asynchronous I/O in future optimizations.
 
 \textbf{Summary: Search Method Characteristics}
 
@@ -528,24 +388,13 @@ The distinction between bi-encoder and cross-encoder architectures is fundamenta
 
 Cross-encoder models, in contrast, jointly encode the query and document as a single concatenated input, allowing the transformer layers to model token-level interactions between query terms and document terms.\cite{nogueira2019passage} This bidirectional attention mechanism enables the model to capture nuanced relevance signals such as term proximity, phrase matching, and semantic entailment that bi-encoders cannot represent. However, cross-encoders require inference for every query-document pair, making them prohibitively expensive for initial retrieval over large corpora. The two-stage retrieval architecture (bi-encoder for fast retrieval $\rightarrow$ cross-encoder for precise reranking) balances efficiency and precision by applying the slow but accurate cross-encoder only to a small candidate set (30-40 chunks from RRF fusion).
 
-\textbf{Reranker Service Configuration and Initialization}
+\textbf{Reranker Service}
 
 The reranking functionality is implemented as a separate microservice, hosted via llama.cpp server. This separation from the main LLM service and embedding service enables independent scaling and resource allocation for each component.
 
-\textbf{HTTP Request Construction and Payload Preparation}
+\textbf{Score-Based Sorting}
 
-At reranking time, the system constructs an HTTP POST request containing the query string and the list of candidate document texts. Figure \ref{fig:fig37a} shows the payload preparation logic: the page\_content field is extracted from each LangChain Document object to create a list of plain text strings, which are then packaged into a JSON payload along with the model name and query. The optional top\_n parameter, if provided, is included in the payload to instruct the server to return only the top-n results (though the client enforces this limit locally as well to ensure consistency).
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{request_payload_preparation.png}
-  \caption{Request payload preparation}
-  \label{fig:fig37a}
-\end{figure}
-
-\textbf{Response Parsing and Score-Based Sorting}
-
-The reranker service returns a JSON response containing a list of results, where each result includes an index (referring to the position in the input documents array) and a relevance\_score (typically in the range [0, 1], with higher scores indicating greater relevance). Figure \ref{fig:fig38a} shows the expected response format.
+At reranking time, the system constructs an HTTP POST request containing the query string and the list of candidate document texts. The reranker service then returns a JSON response containing a list of results, where each result includes an index (referring to the position in the input documents array) and a relevance\_score (typically in the range [0, 1], with higher scores indicating greater relevance). Figure \ref{fig:fig38a} shows the expected response format.
 
 \begin{figure}[H]
   \centering
@@ -554,18 +403,9 @@ The reranker service returns a JSON response containing a list of results, where
   \label{fig:fig38a}
 \end{figure}
 
-Although the reranker service typically returns results pre-sorted by relevance score, the client explicitly sorts the results to ensure consistency regardless of server implementation, as shown in Figure \ref{fig:fig38b}. The sorted function orders results by the relevance\_score field in descending order (highest scores first), with a fallback to 0 if the score is missing.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{sorting_by_relevance_score.png}
-  \caption{Sorting by relevance score}
-  \label{fig:fig38b}
-\end{figure}
-
 \textbf{Metadata Preservation and Document Reconstruction}
 
-After sorting, the system maps the reranked indices back to the original Document objects, preserving all metadata while adding the rerank\_score field, as demonstrated in Figure \ref{fig:fig38c}. For each result, the index is validated to ensure it falls within the bounds of the input documents array, then the corresponding document is retrieved. A new Document object is constructed with the same page\_content and a merged metadata dictionary that includes all original fields (chunk\_id, transcript\_id, timestamps, etc.) plus the new rerank\_score. This metadata preservation ensures that downstream components (context formatting, LLM prompts) can access both the original chunk information and the reranking score.
+The system maps the reranked indices back to the original Document objects, preserving all metadata while adding the rerank\_score field, as demonstrated in Figure \ref{fig:fig38c}. For each result, the index is validated to ensure it falls within the bounds of the input documents array, then the corresponding document is retrieved. A new Document object is constructed with the same page\_content and a merged metadata dictionary that includes all original fields (chunk\_id, transcript\_id, timestamps, etc.) plus the new rerank\_score. This metadata preservation ensures that downstream components (context formatting, LLM prompts) can access both the original chunk information and the reranking score.
 
 \begin{figure}[H]
   \centering
@@ -640,17 +480,6 @@ Figure \ref{fig:fig42a} shows the RAG system message template, which establishes
 \end{figure}
 
 The grounding instruction ("Use these excerpts to answer the user's questions") explicitly directs the LLM to base its responses on the provided context rather than relying solely on parametric knowledge. The transparency instruction ("If the answer cannot be found in the provided excerpts, say so clearly") encourages the LLM to admit when it lacks sufficient information, reducing the risk of plausible but incorrect answers. The hallucination prevention directive ("Do not make up information not present in the excerpts") reinforces these constraints, explicitly forbidding fabrication. This combination of positive instructions (what to do) and negative constraints (what not to do) has proven effective in reducing hallucination rates in empirical testing.
-
-\textbf{Human Message Template and Reasoning Suppression}
-
-Figure \ref{fig:fig42b} demonstrates the human message template, which contains the user's question followed by the /no\_think directive. This directive is specific to Qwen and similar models that support chain-of-thought reasoning via <think>...</think> tags.\cite{qwen3_thinking_switch} When /no\_think is appended to the input, the model suppresses the output of explicit reasoning steps, producing only the final answer. This improves response cleanliness for end users, who typically do not need to see the model's internal reasoning process.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{human_message_template_with_reasoning_suppression_directive.png}
-  \caption{Human message template with reasoning suppression directive}
-  \label{fig:fig42b}
-\end{figure}
 
 \textbf{Multi-Turn Chat Prompt Construction}
 
