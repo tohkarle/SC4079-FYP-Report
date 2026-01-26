@@ -1,0 +1,137 @@
+\documentclass[12pt,a4paper]{report}
+
+% Essential packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref}
+\usepackage[margin=1in]{geometry}
+\usepackage{listings}
+\usepackage{caption}
+\captionsetup{justification=centering}
+\captionsetup[figure]{labelfont=small}
+\captionsetup[table]{labelfont=small}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{cite}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{pdflscape}
+
+% Chapter-based figure and table numbering
+\usepackage{chngcntr}
+\counterwithin{figure}{chapter}
+\counterwithin{table}{chapter}
+
+
+% % Reduce top margin for chapter pages
+\makeatletter
+\def\@makechapterhead#1{%
+  \vspace*{-40pt}%
+  {\parindent \z@ \raggedright \normalfont
+    \huge\bfseries \@chapapp\space\thechapter\par\nobreak  % "Chapter N"
+    \vskip 10pt                                              % Space between label and title
+    \huge\bfseries #1\par\nobreak                            % Chapter title
+    \vskip 20pt                                              % Space after title
+  }}
+\def\@makeschapterhead#1{%
+  \vspace*{-40pt}%
+  {\parindent \z@ \raggedright \normalfont
+    \huge\bfseries #1\par\nobreak
+    \vskip 20pt
+  }}
+\makeatother
+
+% Graphics path
+\graphicspath{{figures/}}
+
+% Remove paragraph indentation
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1em}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=black,
+}
+
+% Listings setup for code
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny,
+    showstringspaces=false
+}
+
+% Title page information
+\title{
+    \includegraphics[width=0.5\textwidth]{image1.jpeg}\\[2cm]
+    \textbf{Transcript Retrieval \&\\
+    Chatbot Optimization for Meadow9+}\\[1cm]
+    \large Interim Report
+}
+
+\author{
+    Toh Kar Le\\
+    U2221258J\\[1cm]
+    Supervisor: Dr Chng Eng Siong\\[1cm]
+    College of Computing and Data Science\\
+    Nanyang Technological University
+}
+
+\date{Academic Year 2025/2026}
+
+\begin{document}
+
+% Title page
+\maketitle
+
+% Abstract as chapter
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\input{chapters/abstract}
+
+% Table of contents
+\clearpage
+{
+\setlength{\parskip}{0.3em}  % Reduce spacing for TOC
+\tableofcontents
+}
+
+% Lists
+\clearpage
+{
+\setlength{\parskip}{0.3em}  % Reduce spacing for LOF
+\listoffigures
+}
+\clearpage
+{
+\setlength{\parskip}{0.3em}  % Reduce spacing for LOT
+\listoftables
+}
+
+% Main content chapters
+\input{chapters/chapter_1}
+\input{chapters/chapter_2}
+\input{chapters/chapter_3}
+\input{chapters/chapter_4}
+\input{chapters/chapter_5}
+\input{chapters/chapter_6}
+
+% Bibliography
+\clearpage
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+\addcontentsline{toc}{chapter}{Bibliography}
+
+\end{document}

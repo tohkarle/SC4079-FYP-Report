@@ -1,0 +1,53 @@
+\chapter{Conclusion and Future Work}
+
+This chapter will be completed in the final report, once everything has been finalized. 
+
+\section{Future Work}
+
+Based on consultations with project supervisors, several areas for future development have been identified.
+
+\subsection{Limited Coverage of Question Types in the Evaluation Pipeline}
+
+The current evaluation pipeline is designed under the assumption that users ask highly specific questions that require extracting precise, localized information from a transcript. This is reflected in the construction of the ground truth dataset, where questions are intentionally scoped to narrow spans of evidence. Examples include:
+
+\begin{itemize}
+  \item "What is the example given of a summarized headline about Baldur's Gate 3 players?"
+  \item "What is the rarity of the secret character in the blind box compared to the other characters?"
+  \item "What does the speaker find unusual about the blind box packaging?"
+\end{itemize}
+
+However, the evaluation pipeline does not yet cover broader and more open-ended queries such as "What is being discussed in this meeting?", where the answer may require integrating context across multiple topics and long time ranges \cite{liu2024lost}. Additional examples of such vague queries include:
+
+\begin{itemize}
+  \item "Can you summarize the main points from this meeting?"
+  \item "What are the key decisions made in this conversation?"
+  \item "What problems or concerns were raised by the team?"
+  \item "What action items or next steps were mentioned?"
+  \item "What is the overall tone or sentiment of the discussion?"
+\end{itemize}
+
+These question types may perform worse under the current retrieval design, as they often require global transcript-level understanding rather than a small set of relevant chunks \cite{liu2024lost}.
+
+Extending the evaluation pipeline to include these high-level summarization and meeting-understanding queries will be addressed in the current semester and incorporated into the final report.
+
+\subsection{RAG Pipeline Optimization for Ambiguous Queries}
+
+The existing RAG pipeline requires enhancement to better handle vague or underspecified questions as described in Section 6.1.1. Proposed improvements include:
+
+\begin{itemize}
+  \item Integration of document summaries into the LLM context to provide high-level contextual information
+  \item Incorporation of neighboring retrieved chunks to maintain semantic coherence across chunk boundaries
+  \item Leveraging the expanded context window available in the Meadow9+ server deployment, which utilizes a larger LLM compared to the locally hosted variant used for development
+\end{itemize}
+
+These enhancements necessitate comprehensive re-evaluation of system latency to ensure performance requirements remain satisfied despite the increased context size \cite{nvidia2023mastering}.
+
+\subsection{Production Deployment of Retrieval Server}
+
+Subject to time constraints, investigation into full production deployment of the retrieval server infrastructure will be undertaken. This includes:
+
+\begin{itemize}
+  \item Infrastructure provisioning and scalability considerations
+  \item Deployment architecture design
+  \item Production monitoring and maintenance protocols
+\end{itemize}

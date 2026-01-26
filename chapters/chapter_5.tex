@@ -1,0 +1,523 @@
+\chapter{Evaluation and Results}
+This chapter presents the evaluation pipeline implementation, experimental results, and discussion used to assess the retriever system and its end-to-end performance.
+
+\section{Evaluation Pipeline Implementation}
+A rigorous evaluation framework was developed to assess both the quality and performance of the RAG system. The evaluation pipeline comprises dataset generation, metric computation, and comparative benchmarking components.
+
+This evaluation framework is designed to operate automatically, eliminating the need for manual human intervention. Traditional evaluation approaches require extensive manual effort, including human annotation of ground truth question-answer pairs, manual inspection of retrieved document relevance, and subjective assessment of generated answer quality \cite{ares2023}. Such manual processes are time-consuming, costly, and difficult to scale across large transcript corpora.
+
+With the advancement of LLM, it is now feasible to design an automated evaluation framework that leverages LLM capabilities for both dataset generation and answer quality assessment \cite{ragas2023}. The proposed pipeline automates ground truth generation using an LLM to synthesize contextually relevant question-answer pairs from transcript excerpts (Section 5.1.1), computes retrieval metrics algorithmically through temporal overlap detection (Section 5.1.2), and employs an LLM judge to evaluate semantic correctness of generated answers (Section 5.1.3). This automation enables rapid iteration during system development, facilitates reproducible evaluation across configuration changes, and scales efficiently to accommodate additional transcripts without proportional increases in human labor.
+
+\subsection{Dataset Generation Methodology}
+
+Ground truth evaluation datasets were generated automatically using an LLM-based approach. The generation process follows a structured pipeline that transforms raw SRT transcripts into question-answer pairs with temporal metadata for retrieval evaluation.
+
+\textbf{5.1.1.1 Context Window Grouping}
+
+The grouping algorithm aggregates small SRT chunks into larger context windows suitable for LLM processing. The grouping process employs a greedy first-fit algorithm that iterates through SRT chunks sequentially, accumulating text until a maximum character threshold is reached.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/figure62.png}
+  \caption{Context window grouping function signature with metadata tracking}
+  \label{fig:fig62}
+\end{figure}
+
+The algorithm maintains temporal boundaries by tracking the start and end timestamps of each grouped window, ensuring that generated questions can be linked back to specific time ranges in the source transcript. This temporal metadata is critical for subsequent retrieval evaluation.
+
+Figure \ref{fig:fig64} illustrates the transformation pipeline from raw SRT transcripts to a grouped window:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/figure64.png}
+  \caption{Example transformation from raw SRT transcript chunks to a grouped window with temporal metadata}
+  \label{fig:fig64}
+\end{figure}
+
+\textbf{5.1.1.2 LLM API Call for QA Generation}
+
+The QA generation leverages DeepSeek's chat API through LangChain's OpenAI-compatible interface. Figure \ref{fig:fig68} shows the chain initialization:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/figure68.png}
+  \caption{LangChain pipe syntax for QA generation chain}
+  \label{fig:fig68}
+\end{figure}
+
+The LangChain pipe operator chains three components: the prompt template, the LLM, and the string output parser. The temperature of 0.7 was selected to balance creativity in question formulation with factual grounding. Lower temperatures (e.g., 0.2) produced repetitive questions, while higher temperatures (e.g., 1.0) occasionally generated questions not directly answerable from the context. Figure \ref{fig:fig47} shows the LLM generation:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image47.png}
+  \caption{LLM API call for QA pair generation with temperature 0.7}
+  \label{fig:fig47}
+\end{figure}
+
+\textbf{5.1.1.3 Generation Prompt Template}
+
+The generation prompt template specifies requirements for question-answer pairs. Figure \ref{fig:fig48} shows the prompt template:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image48.png}
+  \caption{QA generation prompt template with requirements and format}
+  \label{fig:fig48}
+\end{figure}
+
+The prompt template enforces three critical requirements. First, questions must be self-contained, avoiding pronouns like "he," "she," or "it" without clear antecedents. This ensures questions can be answered without additional context beyond the retrieved chunks. Second, answers must be directly supported by the provided text, preventing hallucination. Third, the output must be valid JSON, enabling automated parsing and validation.
+
+The template requests 2-3 question-answer pairs per context window, balancing dataset size with question quality. Requesting more pairs per window (e.g., 5-7) resulted in lower-quality questions that repeated similar information.
+
+\textbf{5.1.1.4 JSON Output Format and Metadata Enrichment}
+
+Each generated QA pair is enriched with three metadata fields. The source\_start and source\_end fields capture the temporal boundaries of the context window from which the question was generated. This temporal metadata enables retrieval relevance checking during evaluation by allowing the system to verify whether retrieved chunks overlap with the ground truth time range. The context field stores the full context window text, enabling manual validation of question quality and answer correctness.
+
+Figure \ref{fig:fig49} shows an example of the ground truth JSON format:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image49.png}
+  \caption{Ground truth JSON format example with timestamps}
+  \label{fig:fig49}
+\end{figure}
+
+Table \ref{tab:ground-truth-schema} shows the ground truth schema field descriptions:
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{Field} & \textbf{Type} & \textbf{Description} \\
+    \hline
+    question & string & Self-contained question derived from context \\
+    \hline
+    answer & string & Ground truth answer from source text \\
+    \hline
+    source\_start & string & Start timestamp in SRT format (HH:MM:SS,mmm) \\
+    \hline
+    source\_end & string & End timestamp in SRT format \\
+    \hline
+    context & string & Full context window text used for generation \\
+    \hline
+  \end{tabular}
+  \caption{Ground truth schema field descriptions}
+  \label{tab:ground-truth-schema}
+\end{table}
+
+\subsection{Retrieval Metrics}
+
+Retrieval metrics evaluate the system's ability to find relevant chunks from the transcript before answer generation. Two complementary metrics are used: Hit Rate (recall-oriented) and Mean Reciprocal Rank (ranking-oriented).
+
+\textbf{5.1.2.1 Hit Rate Computation}
+
+Definition: Proportion of queries where at least one retrieved chunk has temporal overlap with the ground truth timestamp range \cite{vanrijsbergen1979ir}. The formula is shown in Figure \ref{fig:fig51}:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image51.png}
+  \caption{Hit Rate formula for retrieval evaluation}
+  \label{fig:fig51}
+\end{figure}
+
+Hit Rate is computed through temporal overlap detection between retrieved chunks and ground truth time ranges. Figure \ref{fig:fig73} shows the temporal overlap detection algorithm:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/figure73.png}
+  \caption{Interval intersection algorithm for retrieval relevance checking}
+  \label{fig:fig73}
+\end{figure}
+
+The algorithm implements standard interval intersection logic: two intervals [a,b] and [c,d] overlap if and only if a < d AND b > c. For example, if a QA pair was generated from context spanning [10s, 20s] and a retrieved chunk covers [15s, 25s], the intervals overlap and the chunk is considered relevant. The function returns both a boolean hit flag and the 1-indexed rank of the first relevant chunk, enabling simultaneous Hit Rate and MRR computation.
+
+\textbf{5.1.2.2 Mean Reciprocal Rank (MRR)}
+
+Definition: Average of reciprocal ranks of the first relevant result, as illustrated in Figure \ref{fig:fig52} \cite{wikipedia2024mrr}:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image52.png}
+  \caption{Mean Reciprocal Rank (MRR) formula and definition}
+  \label{fig:fig52}
+\end{figure}
+
+If a hit is detected, the MRR contribution is computed as 1.0 divided by the rank. An MRR of 1.0 indicates perfect retrieval performance, where the first relevant result is consistently ranked at position 1. An MRR of 0.5 implies that the first relevant result appears at rank 2 on average, while an MRR of 0.333 suggests it appears at rank 3 on average. Conversely, an MRR of 0.0 indicates retrieval failure, where no relevant results are returned for the evaluated queries.
+
+MRR provides a more nuanced assessment than Hit Rate by penalizing lower-ranked relevant results. A system with Hit Rate = 1.0 and MRR = 0.5 successfully retrieves relevant chunks for all queries but often places them at rank 2 or lower, indicating suboptimal ranking quality.
+
+\subsection{Generation Metrics}
+
+Generation metrics evaluate the quality of answers produced by the LLM after retrieval. Two complementary metrics are used: F1 Score (lexical overlap) and LLM Judge Accuracy (semantic correctness).
+
+\textbf{5.1.3.1 F1 Score Calculation}
+
+Definition: Harmonic mean of precision and recall based on token-level overlap between generated and ground truth answers, as shown in Figure \ref{fig:fig53} \cite{vanrijsbergen1979ir}:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image53.png}
+  \caption{F1 score calculation with precision and recall}
+  \label{fig:fig53}
+\end{figure}
+
+F1 Score computation requires token-level comparison between generated and ground truth answers. Figure \ref{fig:fig76} shows the normalization process:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/figure76.png}
+  \caption{Text preprocessing for token-level comparison}
+  \label{fig:fig76}
+\end{figure}
+
+To enable robust token-level comparison, a lightweight normalization step is applied to both texts prior to metric computation. This process converts all characters to lowercase, removes punctuation and other non-word symbols via regex, and collapses repeated whitespace. This focuses the evaluation on lexical content rather than formatting differences.
+
+Figure \ref{fig:fig77} shows the F1 computation using Counter intersection:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/figure77.png}
+  \caption{Precision, recall, and harmonic mean calculation with Counter intersection}
+  \label{fig:fig77}
+\end{figure}
+
+The Counter intersection operation returns the minimum count for each token present in both prediction and ground truth. For example, if the prediction contains ["apple", "apple", "banana"] and the ground truth contains ["apple", "banana", "banana"], the intersection yields \{"apple": 1, "banana": 1\}. The num\_same variable sums these counts to get the total number of overlapping tokens.
+
+Precision measures what fraction of the predicted tokens are correct. Recall measures what fraction of the ground truth tokens were predicted. F1 is the harmonic mean of precision and recall, providing a balanced measure that penalizes both over-generation (low precision) and under-generation (low recall).
+
+The F1 score provides a balanced measure of lexical overlap between prediction and ground truth, but may underestimate semantic correctness when valid paraphrasing or synonym substitution is present. For example, "quarreled" vs "argued" would reduce F1 despite semantic equivalence.
+
+\textbf{5.1.3.2 LLM Judge Accuracy (End-to-End Accuracy)}
+
+Definition: Binary semantic correctness evaluated by an LLM judge, assessing whether the generated answer is semantically consistent with the ground truth \cite{liu2023geval}. Figure \ref{fig:fig54} shows the prompt template:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image54.png}
+  \caption{LLM judge prompt template for semantic correctness evaluation}
+  \label{fig:fig54}
+\end{figure}
+
+The LLM judge receives a formatted prompt containing the question, ground truth answer, and generated prediction. The prompt explicitly instructs the judge to output only "CORRECT" or "INCORRECT" based on semantic consistency. The response is parsed using a hierarchical decision logic: if "CORRECT" appears without "INCORRECT", the answer is marked correct; if "INCORRECT" appears, it is marked incorrect; otherwise, a fallback heuristic checks for "CORRECT" in the content. This handles edge cases where the judge provides additional explanation alongside the verdict.
+
+The judge LLM uses temperature 0.0 for deterministic evaluation, reducing variability in scoring. Error handling returns False on judge failure, taking a conservative approach that prefers false negatives to false positives.
+
+Both F1 and LLM Judge metrics are computed for each generated answer and accumulated for averaging. This dual evaluation provides complementary perspectives: F1 captures lexical fidelity while LLM Judge captures semantic correctness.
+
+\subsection{Separation of Retrieval and Generation Evaluation}
+The evaluation framework deliberately separates retrieval and generation metrics to enable diagnostic analysis:
+
+\textbf{Computed Before Generation:} Hit Rate and MRR. These metrics do not depend on the generated answer and evaluate only the retrieval pipeline's ability to find relevant chunks.
+
+\textbf{Computed After Generation:} F1 Score and LLM Judge. These metrics evaluate the LLM's ability to extract and synthesize information from the retrieved context, holding the retrieved chunks constant.
+
+This separation enables precise failure attribution. Figure \ref{fig:fig57} illustrates Scenario 1 (retrieval failure):
+
+\textbf{Scenario 1: Retrieval Failure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image57.png}
+  \caption{Retrieval failure scenario diagnostic example}
+  \label{fig:fig57}
+\end{figure}
+
+Retrieval pipeline failed to find relevant chunks. One example action is to increase the retriever’s top‑k value and re‑evaluate performance, in combination with adjusting fusion weights and/or refining the reranker configuration.
+
+Figure \ref{fig:fig58} shows Scenario 2 (generation failure):
+
+\textbf{Scenario 2: Generation Failure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image58.png}
+  \caption{Generation failure scenario with successful retrieval}
+  \label{fig:fig58}
+\end{figure}
+
+Retrieval succeeded, but the LLM failed to extract the correct answer from the retrieved context. One example action is to refine the prompt (e.g., by adding explicit extraction instructions or structured output formats); additionally, we can experiment with alternative LLMs and temperature settings to improve answer reliability.
+
+Figure \ref{fig:fig59} illustrates Scenario 3 (perfect performance):
+
+\textbf{Scenario 3: Perfect Performance}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image59.png}
+  \caption{Perfect performance scenario for both retrieval and generation}
+  \label{fig:fig59}
+\end{figure}  
+
+Both retrieval and generation working optimally.
+
+\subsection{Speed Evaluation Pipeline}
+
+This section introduces a lightweight speed evaluation pipeline that is separated from the main evaluation pipeline to enable an unbiased latency comparison between the RAG-based approach and a Pure LLM baseline. The pipeline reuses the same ground truth dataset described in Section 5.1.1, including identical questions, reference answers, and temporal metadata, to ensure consistency across evaluations. This separation is necessary due to prompt caching effects in modern LLM services, which can artificially distort latency measurements under sequential execution \cite{openai_prompt_caching}. The mitigation strategy adopted to address this issue is discussed in detail in Section 5.1.5.1.
+
+\textbf{5.1.5.1 Interleaved Execution Design}
+
+The speed evaluation pipeline addresses prompt caching bias through interleaved execution.
+
+LLM services cache recently seen prompts to improve efficiency \cite{openai_prompt_caching}. A sequential benchmarking setup could unintentionally allow the Pure LLM baseline to benefit from warmed caches, thereby underestimating its true latency and producing unfair comparisons. To address this, the pipeline alternates between RAG and Pure LLM execution on a per-question basis, ensuring both methods experience similar caching conditions and enabling a more reliable and unbiased measurement of relative runtime performance, as illustrated in Figure \ref{fig:fig60}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image60.png}
+  \caption{Interleaved execution pattern for unbiased speed benchmarking}
+  \label{fig:fig60}
+\end{figure}
+
+\textbf{5.1.5.2 Warmup Phase}
+
+The evaluation pipeline includes a warmup phase, which is designed to reduce cold-start effects and improve the reliability of latency benchmarking. Specifically, it triggers just-in-time (JIT) compilation and warms up the Python runtime and dependent libraries, initializes and primes the LLM, embedding, and reranker services, and preloads model weights into GPU memory to avoid first-run loading overhead. In addition, it establishes and stabilizes HTTP connections to mitigate transient network latency and connection setup costs during the measured runs.
+
+Warmup results are excluded from timing statistics to measure steady-state performance.
+
+\subsection{Statistical Computation}
+\textbf{5.1.6.1 Basic Statistics}
+
+For each approach (RAG and Pure LLM), the following statistics are computed, as shown in Table \ref{tab:latency-statistics}:
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{|l|l|}
+    \hline
+    \textbf{Metric} & \textbf{Description} \\
+    \hline
+    Mean & Average query time across all timed queries \\
+    \hline
+    Median & Middle value (robust to outliers) \\
+    \hline
+    Min & Best-case performance (fastest query) \\
+    \hline
+    Max & Worst-case performance (slowest query) \\
+    \hline
+    Std Dev & Standard deviation (consistency measure) \\
+    \hline
+  \end{tabular}
+  \caption{Statistical metrics table for latency analysis}
+  \label{tab:latency-statistics}
+\end{table}
+
+\textbf{5.1.6.3 Comparative Metrics}
+
+Direct comparison between RAG and Pure LLM is quantified through several metrics, as illustrated in Table \ref{tab:comparative-metrics}:
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{|l|>{\raggedright\arraybackslash}p{0.32\textwidth}|>{\raggedright\arraybackslash}p{0.45\textwidth}|}
+    \hline
+    \textbf{Metric} & \textbf{Formula} & \textbf{Interpretation} \\
+    \hline
+    Speedup Factor & Pure LLM Mean / RAG Mean & >1: RAG faster, <1: Pure LLM faster, =1: equivalent \\
+    \hline
+    Time Difference (s) & Pure LLM Mean - RAG Mean & Absolute time saved per query \\
+    \hline
+    Percentage Faster & (Difference / Pure LLM Mean) $\times$ 100 & Relative improvement percentage \\
+    \hline
+  \end{tabular}
+  \caption{Comparative metrics between RAG and Pure LLM approaches}
+  \label{tab:comparative-metrics}
+\end{table}
+
+\section{Experimental Results}
+This section presents the empirical results from evaluating the RAG system across four diverse transcripts, covering both quality metrics (retrieval and generation performance) and speed performance (latency comparison with Pure LLM baseline).
+
+It should be noted that the results reported in this section are not final, as the experiments were conducted using a locally hosted LLM for development purpose, which is significantly smaller than the self-hosted LLM deployed on the Meadow9+ production server. Consequently, the absolute latency and generation performance observed here may not directly reflect production-level behavior, and further benchmarking on the target deployment environment is required for conclusive comparison.
+
+\subsection{RAG Quality Metrics}
+\textbf{5.2.1.1 Per-Transcript Results}
+
+Table \ref{tab:rag-quality-metrics} presents the per-transcript RAG quality metrics:
+
+\begin{table}[H]
+  \centering
+  \begingroup
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{|c|c|c|c|c|c|c|}
+    \hline
+    \textbf{Transcript} & \textbf{Duration} & \textbf{Questions} & \textbf{Hit Rate} & \textbf{MRR} & \textbf{Accuracy} & \textbf{F1 Score} \\
+    \hline
+    Transcript 1 & 00:08:21 & 9 & 1.000 & 1.000 & 0.889 & 0.677 \\
+    \hline
+    Transcript 2 & 01:59:40 & 30 & 0.867 & 0.867 & 0.600 & 0.476 \\
+    \hline
+    Transcript 3 & 00:08:14 & 8 & 1.000 & 1.000 & 1.000 & 0.613 \\
+    \hline
+    Transcript 4 & 00:36:14 & 15 & 1.000 & 1.000 & 0.667 & 0.446 \\
+    \hline
+    \textbf{Aggregate} & \textbf{02:52:29} & \textbf{62} & \textbf{0.967} & \textbf{0.967} & \textbf{0.789} & \textbf{0.553} \\
+    \hline
+  \end{tabular}
+  \endgroup
+  \caption{Per-transcript RAG quality metrics aggregated results}
+  \label{tab:rag-quality-metrics}
+\end{table}
+
+\textbf{5.2.1.2 Aggregate Interpretation}
+
+\textbf{Retrieval Performance:}
+
+\begin{itemize}
+  \item \textbf{Hit Rate: 96.7\%}\textbf{:} 60 out of 62 queries successfully retrieved at least one temporally relevant chunk
+  \item \textbf{MRR: 0.967}\textbf{:} The high average reciprocal rank indicates that relevant chunks typically appear at rank 1
+\end{itemize}
+
+The near-perfect retrieval metrics validate the hybrid search architecture. Only Transcript 2 (the longest at almost 2 hours) exhibited any retrieval failures, with 4 out of 30 queries missing relevant chunks.
+
+\textbf{Generation Performance:}
+
+\begin{itemize}
+  \item \textbf{Accuracy: 78.9\%}\textbf{:} LLM Judge marked 49 out of 62 generated answers as semantically correct
+  \item \textbf{F1 Score: 0.553}\textbf{:} Moderate token-level overlap between generated and ground truth answers
+\end{itemize}
+
+The divergence between Accuracy and F1 (0.789 vs 0.553) indicates that the LLM frequently paraphrases or synthesizes information rather than copying text verbatim from retrieved chunks. This is desirable behavior, as it demonstrates understanding rather than mere extraction.
+
+\textbf{5.2.1.4 Detailed Example: Success Case}
+
+Figure \ref{fig:fig64} shows a detailed success case:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image64.png}
+  \caption{Detailed success case example with perfect retrieval and generation}
+  \label{fig:fig64}
+\end{figure}
+
+\textbf{Analysis:}
+
+\begin{itemize}
+  \item \textbf{Perfect retrieval:} Relevant chunk ranked at position 1 with high rerank score (3.172)
+  \item \textbf{Near-perfect generation:} Minor spelling variation ("quarreled" vs "quarrelled") does not affect semantic correctness
+  \item \textbf{High F1 (0.8125):} Strong lexical overlap due to minimal paraphrasing
+  \item \textbf{LLM Judge:} Correct: Semantic equivalence recognized despite spelling difference
+\end{itemize}
+
+This represents optimal system performance across all stages.
+
+\textbf{5.2.1.5 Detailed Example: Failure Case}
+
+Figure \ref{fig:fig65} shows a failure case:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image65.png}
+  \caption{Failure case example with retrieval success but generation error}
+  \label{fig:fig65}
+\end{figure}
+
+\textbf{Analysis:}
+
+\begin{itemize}
+  \item \textbf{Perfect retrieval:} Relevant chunk ranked at position 1
+  \item \textbf{Generation failure:} Model focused on smell observations instead of labeling/branding issues
+  \item \textbf{Low F1 (0.291):} Minimal lexical overlap - completely different aspects mentioned
+  \item \textbf{LLM Judge:} Incorrect: Answer addresses wrong aspect of "unusual"
+\end{itemize}
+
+This is a true generation failure where retrieval succeeded in finding relevant context, but the LLM selected less salient information (smell) over the main point (missing brand name). The model may have latched onto sensory details in the retrieved chunk rather than the more significant observation about brand labeling. Such errors may be mitigated through prompt engineering that explicitly emphasizes answering the core question over incidental attributes, context window optimization to reduce distracting noise, fine-tuning on examples that require distinguishing primary from secondary information, and lightweight post-processing checks to validate that the generated answer aligns with the intended focus of the query.
+
+\textbf{5.2.1.6 Detailed Example: False Negative}
+
+Figure \ref{fig:fig66} illustrates a false negative example:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/image66.png}
+  \caption{False negative example with more specific generated answer}
+  \label{fig:fig66}
+\end{figure}
+
+\textbf{Analysis:}
+
+\begin{itemize}
+  \item \textbf{Perfect retrieval:} Relevant chunk ranked at position 1
+  \item \textbf{More specific generation:} Generated answer mentions "HDB" explicitly, while ground truth uses vague "current place"
+  \item \textbf{Moderate F1 (0.585):} Partial lexical overlap captures the correct structure with added specificity
+  \item \textbf{LLM Judge:} Incorrect: Marked as incorrect due to specificity mismatch
+\end{itemize}
+
+This represents a false negative where the generated answer is actually more accurate and informative than the ground truth. The transcript does mention HDB (Housing \& Development Board), making this not a hallucination but rather additional specificity. The LLM Judge may have been overly strict in requiring exact phrasing match. This example highlights a common evaluation challenge when model outputs include correct extra details, where vague ground truth annotations (e.g., “current place”) can inadvertently penalize semantically equivalent but more specific answers. To address this, evaluation should incorporate metrics and judging criteria that tolerate acceptable specificity variation, and the ground truth and/or judge prompt can be revised to recognize paraphrases and grounded elaborations as correct.
+
+From observation, such cases are relatively frequent in practice, where correct generations are incorrectly marked as wrong, which may lead to an underestimation of the true accuracy of the RAG pipeline. This issue is planned to be addressed within the current semester through refinements to the evaluation methodology, and the updated approach will be documented in the final report.
+
+\subsection{Speed Performance}
+\textbf{5.2.2.1 Per-Transcript Speed Comparison}
+
+Table \ref{tab:speed-comparison} presents the per-transcript speed comparison:
+
+\begin{table}[H]
+  \centering
+  \begingroup
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{|c|c|c|c|c|}
+    \hline
+    \textbf{Transcript} & \textbf{Duration} & \textbf{RAG Mean (s)} & \textbf{Pure LLM Mean (s)} & \textbf{Speedup Factor} \\
+    \hline
+    Transcript 1 & 00:08:21 & 7.01 & 10.03 & 1.43x \\
+    \hline
+    Transcript 2 & 01:59:40 & 7.39 & 51.62 & 6.99x \\
+    \hline
+    Transcript 3 & 00:08:14 & 6.70 & 11.57 & 1.73x \\
+    \hline
+    Transcript 4 & 00:36:14 & 7.14 & 49.63 & 6.95x \\
+    \hline
+    \textbf{Aggregate} & \textbf{02:52:29} & \textbf{7.15} & \textbf{38.53} & \textbf{5.39x} \\
+    \hline
+  \end{tabular}
+  \endgroup
+  \caption{Per-transcript speed comparison showing speedup factors}
+  \label{tab:speed-comparison}
+\end{table}
+
+\textbf{5.2.2.2 Speedup vs Transcript Size Analysis}
+
+\textbf{RAG Performance (Stable):}
+
+\begin{itemize}
+  \item Mean RAG time ranges from 6.70s to 7.39s across all transcripts
+  \item Retrieval extracts a small, fixed-size context regardless of transcript length
+  \item Generation time depends only on retrieved context size, not source transcript size
+  \item Result: Consistent latency independent of transcript length
+\end{itemize}
+
+\textbf{Pure LLM Performance (Scales with Size):}
+
+\begin{itemize}
+  \item Generation time scales approximately linearly with context size
+  \item Result: Latency grows with transcript length
+\end{itemize}
+
+RAG provides greater speed advantages for longer transcripts, which are common in real-world meeting recording scenarios.
+
+\textbf{5.2.2.5 Quality vs Speed Trade-Off Analysis}
+
+Table \ref{tab:quality-speed-tradeoff} summarizes the quality-speed trade-off analysis:
+
+\begin{table}[H]
+  \centering
+  \begingroup
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{|>{\raggedright\arraybackslash}p{0.16\textwidth}|>{\centering\arraybackslash}p{0.12\textwidth}|>{\centering\arraybackslash}p{0.14\textwidth}|>{\centering\arraybackslash}p{0.14\textwidth}|>{\centering\arraybackslash}p{0.12\textwidth}|>{\raggedright\arraybackslash}p{0.22\textwidth}|}
+    \hline
+    \textbf{Transcript} & \textbf{Speedup} & \textbf{RAG Accuracy} & \textbf{Pure LLM Accuracy} & \textbf{Accuracy $\Delta$} & \textbf{Trade-Off} \\
+    \hline
+    Transcript 1 & 1.43x & 0.889 & 0.875 & +0.014 & Speed + Quality \\
+    \hline
+    Transcript 2 & 6.99x & 0.600 & 0.667 & -0.067 & Speed >> Quality \\
+    \hline
+    Transcript 3 & 1.73x & 1.000 & 1.000 & 0.000 & Speed + Quality \\
+    \hline
+    Transcript 4 & 6.95x & 0.667 & 0.733 & -0.066 & Speed >> Quality \\
+    \hline
+  \end{tabular}
+  \endgroup
+  \caption{Quality-speed trade-off analysis across transcript sizes}
+  \label{tab:quality-speed-tradeoff}
+\end{table}
+
+RAG provides substantial speed improvements (1.4x to 7x) with either comparable or slightly reduced quality. For small transcripts, RAG is strictly superior (faster and equal/better quality). For large transcripts, RAG offers a favorable trade-off with massive speedup for small accuracy reduction.
