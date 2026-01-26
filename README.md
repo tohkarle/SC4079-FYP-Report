@@ -1,6 +1,4 @@
-# LaTeX Conversion - FYP Interim Report
-
-This directory contains the LaTeX version of `FYP_TOH_KAR_LE_Interrim_Report.docx`.
+# FYP Interim Report
 
 ## Quick Summary
 
