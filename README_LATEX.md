@@ -10,7 +10,7 @@ This interim report outlines the project motivation and scope, surveys related w
 
 ```
 fyp/
-├── main.tex                          # Main LaTeX document
+├── fyp_report.tex                    # Main LaTeX document
 ├── chapters/                         # Chapter files
 │   ├── abstract.tex                  # Abstract
 │   ├── chapter_1.tex                 # Chapter 1: Introduction
@@ -51,34 +51,34 @@ Once LaTeX is installed, compile from the repository root:
 
 #### Recommended (latexmk)
 ```bash
-latexmk -pdf main.tex
+latexmk -pdf fyp_report.tex
 ```
 
 If you use citations and `references.bib`:
 ```bash
-latexmk -pdf -bibtex main.tex
+latexmk -pdf -bibtex fyp_report.tex
 ```
 
 #### Manual (pdflatex + bibtex)
 ```bash
-pdflatex main.tex
-bibtex main
-pdflatex main.tex
-pdflatex main.tex
+pdflatex fyp_report.tex
+bibtex fyp_report
+pdflatex fyp_report.tex
+pdflatex fyp_report.tex
 ```
 
 #### Alternative (xelatex)
 ```bash
-xelatex main.tex
-xelatex main.tex
+xelatex fyp_report.tex
+xelatex fyp_report.tex
 ```
 
 ### Expected Output
 
 After compilation, you should get:
-- `main.pdf` - The final PDF document
-- `main.aux`, `main.log`, `main.toc` - Auxiliary files
-- `main.lof`, `main.lot` - List of figures and tables
+- `fyp_report.pdf` - The final PDF document
+- `fyp_report.aux`, `fyp_report.log`, `fyp_report.toc` - Auxiliary files
+- `fyp_report.lof`, `fyp_report.lot` - List of figures and tables
 
 ## Document Features
 
@@ -104,7 +104,7 @@ The LaTeX document includes:
 ## Customization
 
 ### Adjusting Margins
-Edit in `main.tex`:
+Edit in `fyp_report.tex`:
 ```latex
 \usepackage[margin=1in]{geometry}  % Change 1in to desired margin
 ```
@@ -129,7 +129,7 @@ Change in document class declaration:
 
 3. **Mathematical Equations**: If your document contains complex equations, verify they were converted correctly.
 
-4. **Bibliography**: If you need citations, uncomment the bibliography section in `main.tex` and create a `references.bib` file.
+4. **Bibliography**: If you need citations, uncomment the bibliography section in `fyp_report.tex` and create a `references.bib` file.
 
 5. **Special Characters**: The conversion automatically escapes LaTeX special characters (&, %, _, $, #, {, }, ~, ^).
 
@@ -149,7 +149,7 @@ Change in document class declaration:
 
 ### Compilation takes too long
 - This is normal for documents with many images
-- Use `pdflatex -interaction=batchmode main.tex` for faster compilation
+- Use `pdflatex -interaction=batchmode fyp_report.tex` for faster compilation
 
 ## Re-running the Conversion
 
@@ -173,5 +173,5 @@ For LaTeX-specific questions, refer to:
 If you don't want to install LaTeX locally, you can use [Overleaf](https://www.overleaf.com/):
 
 1. Create a new project on Overleaf
-2. Upload `main.tex`, the `chapters/` folder, and the `figures/` folder
+2. Upload `fyp_report.tex`, the `chapters/` folder, and the `figures/` folder
 3. Compile directly in your browser
