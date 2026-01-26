@@ -22,8 +22,7 @@ fyp/
 │   ├── image1.jpeg
 │   ├── image2.png
 │   └── ...
-├── convert_docx_to_latex.py         # Conversion script (for reference)
-└── README_LATEX.md                   # This file
+└── README.md                         # This file
 ```
 
 ## Compilation Instructions
@@ -101,38 +100,6 @@ The LaTeX document includes:
   - List of figures and tables
   - 5 chapters with proper sectioning
 
-## Customization
-
-### Adjusting Margins
-Edit in `fyp_report.tex`:
-```latex
-\usepackage[margin=1in]{geometry}  % Change 1in to desired margin
-```
-
-### Figure Width
-Figures are set to 80% text width by default. Edit in chapter files:
-```latex
-\includegraphics[width=0.8\textwidth]{figures/imageX.png}  % Change 0.8 to desired width
-```
-
-### Font Size
-Change in document class declaration:
-```latex
-\documentclass[12pt,a4paper]{report}  % Change 12pt to 10pt or 11pt
-```
-
-## Known Issues and Notes
-
-1. **Figure Captions**: The conversion script uses generic captions. You may want to manually update them with the actual captions from the Word document.
-
-2. **Table Formatting**: Tables are converted with basic formatting. You may need to adjust column widths and alignment manually.
-
-3. **Mathematical Equations**: If your document contains complex equations, verify they were converted correctly.
-
-4. **Bibliography**: If you need citations, uncomment the bibliography section in `fyp_report.tex` and create a `references.bib` file.
-
-5. **Special Characters**: The conversion automatically escapes LaTeX special characters (&, %, _, $, #, {, }, ~, ^).
-
 ## Troubleshooting
 
 ### "File not found" errors
@@ -150,16 +117,6 @@ Change in document class declaration:
 ### Compilation takes too long
 - This is normal for documents with many images
 - Use `pdflatex -interaction=batchmode fyp_report.tex` for faster compilation
-
-## Re-running the Conversion
-
-If you need to re-convert the Word document:
-
-```bash
-python3 convert_docx_to_latex.py
-```
-
-This will regenerate all chapter files in `chapters/`.
 
 ## Support
 
