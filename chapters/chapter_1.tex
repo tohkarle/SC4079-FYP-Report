@@ -39,7 +39,7 @@ Note that this section only provides an overview of the key contributions made. 
 
 \textbf{Conducted controlled empirical benchmarking} comparing RAG against a pure LLM baseline under realistic conditions. Component-level timing measurements isolate retrieval overhead (mean: 0.42--0.55s) from generation time, and interleaved query execution mitigates prompt caching bias. Results demonstrate that RAG achieves 78.9\% accuracy at 5.39$\times$ speedup compared to baseline, establishing practical viability for real-time transcript question-answering in resource-constrained environments.
 
-\textbf{Explore extensible retrieval techniques tailored to noisy ASR transcripts}, enabling efficient date-based and keyword-based retrieval in addition to chatbot-driven querying. This part is still a work in progress. The exact detail will be provided in the final report once everything has been finalized.
+\textbf{Implemented a global keyword-first search bar} as an extensible retrieval mechanism tailored to noisy ASR transcripts, enabling efficient date-based, speaker-based, and keyword-based retrieval in addition to chatbot-driven querying. The system employs a two-phase pipeline that ranks transcripts globally before running per-transcript chunk retrieval with cross-encoder reranking, with phonetic and fuzzy matching to handle ASR transcription noise.
 
 \section{Project Schedule}
 The detailed project schedule is presented in Table \ref{tab:project-schedule}, with the corresponding timeline visualization shown in Figure \ref{fig:fig2}.
