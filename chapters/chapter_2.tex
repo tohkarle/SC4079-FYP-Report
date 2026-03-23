@@ -1,5 +1,5 @@
 \chapter{Literature Review}
-In today’s competitive landscape, modern transcription-based applications and meeting asssistants increasingly integrate chat-based interfaces to allow users to query recorded conversations. In approaching the development of this project, a comprehensive review was conducted on the retrieval capabilities of three existing products: Otter.ai, Claude Code and the existing Meadow9+ mobile application. These products were selected due to their relevance to the proposed project. 
+In today’s competitive landscape, modern transcription-based applications and meeting assistants increasingly integrate chat-based interfaces to allow users to query recorded conversations. In approaching the development of this project, a comprehensive review was conducted on the retrieval capabilities of three existing products: Otter.ai, Claude Code and the existing Meadow9+ mobile application. These products were selected due to their relevance to the proposed project. 
 
 The literature review focused on three key aspects: retrieval strategies, accuracy and latency characteristics, and transparency of retrieval and reasoning. Instead of trying to replicate existing solutions, this review aimed to understand how these platforms effectively address retrieval challenges and identify opportunities for improvement in developing our project. An in-depth analysis of the technological stacks and architectures will be presented in later chapters, specifically in the context of Meadow9+, as such information is not publicly available for the other products reviewed.
 
@@ -20,11 +20,11 @@ Otter.ai provides three primary mechanisms for retrieving information from trans
   \label{fig:otter-interface}
 \end{figure}
 
-Keyword-Based Retrieval
+\subsubsection{Keyword-Based Retrieval}
 
 Otter.ai supports keyword-based search over notes and transcripts \cite{otter_features}. Although Otter.ai does not publicly disclose the exact retrieval algorithm used, empirical testing suggests that the system employs a term-weighted ranking function such as TF-IDF or BM25. For example, queries containing additional discriminative terms such as “toxic workplace” versus “workplace” significantly alter result rankings in a manner consistent with BM25-style term frequency saturation and inverse document frequency weighting \cite{robertson2009bm25}. In addition, Otter.ai supports date-based filters over transcript metadata \cite{otter_features}. This feature substantially improves usability and demonstrates the value of combining structured metadata filtering with unstructured text search.
 
-LLM-Based Conversational Retrieval (Otter AI Chat)
+\subsubsection{LLM-Based Conversational Retrieval (Otter AI Chat)}
 
 Otter AI Chat allows users to ask free-form natural language questions either across all transcripts or within a specific transcript. While Otter.ai does not explicitly disclose its backend architecture, its FAQ indicates that transcript content and prompts are transmitted to third-party services only when users actively interact with Otter AI Chat, strongly suggesting reliance on externally hosted LLMs from third-party providers \cite{otter_ai_chat_faq}.
 
@@ -32,7 +32,7 @@ Behavioral observations indicate that the global chat interface likely employs a
 
 Notably, Otter AI Chat responses tend to be abstractive and conversational, favoring rephrased summaries over verbatim quotations. This design choice may be driven by prompt engineering rather than retrieval limitations; however, it also suggests limited emphasis on fine-grained, chunk-level semantic retrieval at query time. 
 
-LLM-Based Summarization
+\subsubsection{LLM-Based Summarization}
 
 Beyond interactive retrieval, Otter.ai generates an extensive per-transcript summary using LLM-based processing \cite{otter_appstore}. This summary is structured into three layers: (i) a high-level overview of the meeting, (ii) extracted action items, and (iii) a hierarchical outline organized by timestamps, with further speaker-segmented summaries nested within each time interval. This multi-level summarization demonstrates effective use of LLMs to transform long-form transcripts into structured, navigable representations. 
 
@@ -47,7 +47,7 @@ Overall, Otter.ai exemplifies a feature-rich and well-integrated retrieval ecosy
 
 However, the apparent lack of fine-grained, chunk-level grounding and the absence of explicit evidence attribution indicate that Otter.ai’s system prioritizes fluency and abstraction over verifiability. While this design choice may be acceptable for general meeting summarization, it introduces risks of hallucination and reduces user trust in scenarios where factual accuracy and traceability are critical. This limitation is particularly relevant to Meadow9+, since it cannot rely on large cloud-hosted frontier models with extensive context windows and optimized inference pipelines. Instead, it employs a smaller, self-hosted LLM with stricter latency and context constraints. Consequently, passing full transcripts, or even large document-level contexts, into the model is neither scalable nor reliable.
 
-These observations collectively imply that Meadow9+ must adopt a \textit{more retrieval-centric and evidence-grounded design} than Otter.ai. Rather than treating retrieval as a preliminary filtering step, retrieval must be a first-class system component that operates at multiple granularities (document-level, chunk-level, and temporal level). Figure 2.1 illustrates the baseline chatbot architecture commonly observed in existing systems, where retrieval is shallow or opaque and tightly coupled to generation.
+These observations collectively imply that Meadow9+ must adopt a \textit{more retrieval-centric and evidence-grounded design} than Otter.ai. Rather than treating retrieval as a preliminary filtering step, retrieval must be a first-class system component that operates at multiple granularities (document-level, chunk-level, and temporal level).
 
 In contrast, Meadow9+ is designed to decouple retrieval from generation and to emphasize transparent, inspectable retrieval results. This includes (i) hybrid lexical--semantic retrieval to handle both exact terms and paraphrased queries, (ii) phonetic and fuzzy matching to mitigate transcription errors, and (iii) chunk-level evidence selection to reduce prompt length. By explicitly surfacing retrieved segments and their timestamps, Meadow9+ aims to improve both answer accuracy and user trust, which is an aspect largely absent in Otter.ai’s conversational interface.
 
@@ -95,7 +95,7 @@ Finally, Claude Code’s emphasis on transparent retrieval suggests an additiona
 Incorporating lightweight transparency mechanisms aligns with Claude Code’s philosophy that retrieval visibility is not merely a safety feature but a debugging and validation aid. Such features can also support iterative refinement of retrieval strategies during system evaluation.
 
 \section{Pre-Project Meadow9+}
-Meadow9+ is a mobile speech-to-text application developed by researchers from the NTU Speech and Language Laboratory, with initial development dating back to approximately 2021 (exact date to be confirmed) \cite{meadow9_appstore_au,abax_ai_site}. It is a product of ABAX AI, a company specializing in advanced speech recognition technologies tailored for enterprise and professional use cases \cite{abax_ai_site,abax_ai_companies_sg}.
+Meadow9+ is a mobile speech-to-text application developed by researchers from the NTU Speech and Language Laboratory, with initial development dating back to approximately 2021 \cite{meadow9_appstore_au,abax_ai_site}. It is a product of ABAX AI, a company specializing in advanced speech recognition technologies tailored for enterprise and professional use cases \cite{abax_ai_site,abax_ai_companies_sg}.
 
 The platform is primarily designed for Singapore-based business professionals, with a strong emphasis on one-to-one meetings as its core usage scenario \cite{meadow9_appstore_au,abax_ai_site,abax_ai_companies_sg}. Nevertheless, Meadow9+ also supports a broader range of transcription contexts, including multi-party discussions and news audio recordings. A key strength of the system lies in its ability to handle Singaporean accents and domain-specific terminology, addressing a notable gap in the local speech recognition market where generic transcription systems often underperform.
 
@@ -104,17 +104,17 @@ While Meadow9+ demonstrates strong transcription quality, particularly in locali
 \subsection{Retrieval Strategies}
 Meadow9+ provides two primary mechanisms for retrieving information from transcripts: (1) text-matching search and (2) LLM-based conversational querying.
 
-Text-Matching Search
+\subsubsection{Text-Matching Search}
 
 The system supports a text-matching search functionality at the global level, allowing users to search across conversation titles. At query time, the search matches user-provided keywords against stored conversation titles, returning transcripts whose metadata contains the queried terms. This design emphasizes simplicity and responsiveness, making it suitable for lightweight retrieval scenarios where meaningful titles are consistently available.
 
-LLM-Based Conversational Retrieval
+\subsubsection{LLM-Based Conversational Retrieval}
 
 Meadow9+ integrates an LLM-powered chatbot that allows users to pose free-form natural language questions within a selected transcript \cite{meadow9_appstore_us}. For privacy and data governance considerations, the chatbot relies on a self-hosted LLM. 
 
 In the pre-project system, the chatbot passes the full transcript directly into the LLM as input context at query time, without an intermediate retrieval or context selection stage. Responses generated by the system are primarily abstractive and conversational in nature, focusing on synthesized summaries rather than direct quotations or fine-grained references to specific transcript segments.
 
-LLM-Based Summarization
+\subsubsection{LLM-Based Summarization}
 
 In addition to interactive querying, Meadow9+ generates a per-transcript summary using LLM-based processing \cite{meadow9_appstore_us}. This summary provides a condensed overview of the meeting content and is generated independently of user queries. The summarization output is static and intended for post-meeting review rather than targeted information retrieval. It does not support interaction, filtering, or alignment with subsequent user questions.
 

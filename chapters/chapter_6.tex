@@ -1,53 +1,27 @@
 \chapter{Conclusion and Future Work}
 
-This chapter will be completed in the final report, once everything has been finalized. 
+\section{Conclusion}
+This project set out to address a key limitation in the pre-project Meadow9+ chatbot: the system handled user questions by passing full meeting transcripts directly to a large language model, which led to high latency, increased computational cost, and degraded answer quality on long transcripts. Rather than treating this as a narrow chatbot-prompting problem, the project approached it as a broader transcript retrieval problem and designed a hybrid retrieval system that supports multiple interaction modes over the same transcript corpus.
+
+The final system comprises three coordinated capabilities built on a shared retrieval foundation. First, a hierarchical summarization pipeline was implemented to generate high-level transcript understanding and summary-derived retrieval artefacts. Second, a RAG pipeline was implemented to support grounded conversational question answering through hybrid retrieval, reranking, and evidence-constrained prompt construction. Third, a keyword-first search workflow was implemented to support direct date-based, speaker-based, and lexical retrieval over the transcript collection. These capabilities were integrated through a shared processing backbone and exposed through a deployable retrieval server, allowing the project to move beyond isolated prototypes toward an integration-ready backend service for Meadow9+.
+
+The evaluation results show that the proposed retrieval-driven design is effective. The RAG subsystem achieved strong retrieval quality across the evaluation set, and end-to-end answer quality was sufficiently reliable to support practical transcript-grounded question answering. In addition, the speed benchmarking results show that retrieval augmentation provides substantial latency benefits on longer transcripts, where the original full-context approach becomes increasingly inefficient. 
+
+Beyond improvements in retrieval quality and latency, the implemented system enhances the overall transcript retrieval and interaction experience by enabling streamed LLM responses and improving transparency. Specifically, the system is able to return retrieved supporting evidence alongside generated answers, rather than presenting only opaque responses as in the original chatbot design.
+
+Overall, this project demonstrates that retrieval-driven system design provides a practical and scalable improvement over the original Meadow9+ full-context chatbot, particularly for long-duration meeting transcripts. By approaching the retrieval problem from multiple complementary angles, the system extends Meadow9+ beyond a transcription tool with limited post-hoc interaction into a more capable platform for transcript understanding and retrieval. Although further evaluation and deployment work remain, the architectural design, implementation, and empirical results presented in this report establish the technical viability of the proposed hybrid retrieval approach.
 
 \section{Future Work}
+Although the core hybrid retrieval system has been implemented and evaluated, several important areas remain for future work.
 
-Based on consultations with project supervisors, several areas for future development have been identified.
+\subsection{Adaptive Routing for Transcript Length}
+The final system could benefit from adaptive routing between a pure-LLM path and a retrieval-augmented path. As shown in Chapter 5, retrieval provides a clear advantage on longer transcripts, but its overhead is not always beneficial for very short transcripts. A practical next step is therefore to introduce a routing policy based on transcript length or token count, so that shorter transcripts can bypass unnecessary retrieval stages while longer transcripts continue to benefit from retrieval-based context reduction. This would make the deployed system more efficient across a wider range of transcript lengths.
 
-\subsection{Limited Coverage of Question Types in the Evaluation Pipeline}
+\subsection{Multiple-Language Support}
+The current implementation was designed with multilingual extension in mind. In particular, the selected LLM, embedding model, and reranker were chosen so that answer generation, dense retrieval, and reranking can in principle support multiple languages rather than only English. However, the evaluation presented in this report was conducted only on English-language transcripts, and no explicit benchmarking has yet been performed on transcripts in other languages. Future work should therefore assess how well the hybrid retrieval pipeline generalizes to multilingual meeting data, including both retrieval quality and end-to-end answer quality under non-English transcript conditions.
 
-The current evaluation pipeline is designed under the assumption that users ask highly specific questions that require extracting precise, localized information from a transcript. This is reflected in the construction of the ground truth dataset, where questions are intentionally scoped to narrow spans of evidence. Examples include:
+\subsection{Production Hardening and Integration}
+Additional work is needed to harden the retrieval server for production use within the broader Meadow9+ environment. Although the current implementation already provides a deployable service architecture, full deployment still requires tighter integration with the existing Meadow9+ backend and persistence workflow, together with stronger operational monitoring, scalability planning, and service robustness under real production workloads. These tasks are primarily deployment and infrastructure work rather than changes to the core retrieval design, but they are necessary for complete operational adoption.
 
-\begin{itemize}
-  \item "What is the example given of a summarized headline about Baldur's Gate 3 players?"
-  \item "What is the rarity of the secret character in the blind box compared to the other characters?"
-  \item "What does the speaker find unusual about the blind box packaging?"
-\end{itemize}
-
-However, the evaluation pipeline does not yet cover broader and more open-ended queries such as "What is being discussed in this meeting?", where the answer may require integrating context across multiple topics and long time ranges \cite{liu2024lost}. Additional examples of such vague queries include:
-
-\begin{itemize}
-  \item "Can you summarize the main points from this meeting?"
-  \item "What are the key decisions made in this conversation?"
-  \item "What problems or concerns were raised by the team?"
-  \item "What action items or next steps were mentioned?"
-  \item "What is the overall tone or sentiment of the discussion?"
-\end{itemize}
-
-These question types may perform worse under the current retrieval design, as they often require global transcript-level understanding rather than a small set of relevant chunks \cite{liu2024lost}.
-
-Extending the evaluation pipeline to include these high-level summarization and meeting-understanding queries will be addressed in the current semester and incorporated into the final report.
-
-\subsection{RAG Pipeline Optimization for Ambiguous Queries}
-
-The existing RAG pipeline requires enhancement to better handle vague or underspecified questions as described in Section 6.1.1. Proposed improvements include:
-
-\begin{itemize}
-  \item Integration of document summaries into the LLM context to provide high-level contextual information
-  \item Incorporation of neighboring retrieved chunks to maintain semantic coherence across chunk boundaries
-  \item Leveraging the expanded context window available in the Meadow9+ server deployment, which utilizes a larger LLM compared to the locally hosted variant used for development
-\end{itemize}
-
-These enhancements necessitate comprehensive re-evaluation of system latency to ensure performance requirements remain satisfied despite the increased context size \cite{nvidia2023mastering}.
-
-\subsection{Production Deployment of Retrieval Server}
-
-Subject to time constraints, investigation into full production deployment of the retrieval server infrastructure will be undertaken. This includes:
-
-\begin{itemize}
-  \item Infrastructure provisioning and scalability considerations
-  \item Deployment architecture design
-  \item Production monitoring and maintenance protocols
-\end{itemize}
+\subsection{Refinement of Answer Evaluation}
+The answer-evaluation methodology can be further improved. As discussed in Chapter 5 and Appendix C, the current semantic judging setup can produce false negatives when generated answers are more specific than the reference answer while still remaining grounded in the transcript. Future work can refine the judging framework to better distinguish genuinely incorrect responses from grounded elaborations, thereby producing a more faithful measure of end-to-end answer quality.

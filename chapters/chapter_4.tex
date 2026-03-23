@@ -1,19 +1,18 @@
-\chapter{Implementation and Progress to Date}
-Note that this chapter is still a work in progress. The exact description will be provided in the final report once everything has been finalized. The summary paragraphs below are provided as a draft.
+\chapter{System Implementation}
+This chapter presents the implementation of the hybrid retrieval system. The final system comprises three coordinated subsystems built on shared transcript ingestion and retrieval infrastructure: a summarization pipeline for high-level understanding, a RAG pipeline for grounded question answering, and a keyword-based search workflow for direct snippet retrieval.
 
-This chapter presents the implementation details of the RAG system developed for the Meadow9+ transcription platform. It is organized into sections covering external resources and libraries, the retriever system implementation, and stretch goals and deployment.
+\section{Implementation Overview}
+\subsection{Shared Processing Backbone}
+The final implementation was designed around one shared transcript-processing backbone rather than three completely independent systems. Each uploaded transcript is parsed once, enriched with timestamps and speaker metadata, and stored in a global retrieval layer. On top of this backbone, the system produces both fine-grained transcript chunks and summary-derived documents, allowing the same underlying corpus to support detailed QA, broad topic-level retrieval, and search-oriented lookup.
 
-\section{External Resources Incorporated}
-The RAG system integrates multiple external libraries and services to provide comprehensive RAG capabilities, as summarized in Table \ref{tab:third-party-libraries}. These resources are organized into six primary categories, each serving distinct functional requirements within the pipeline.
+This architecture reduced duplicated infrastructure and made the three subsystems mutually reinforcing. In particular, the summary pipeline does not only generate a user-facing summary; it also produces retrieval artefacts that improve broad-query handling in the chatbot and transcript ranking in the search bar.
 
-\subsection{Core Framework Libraries}
-The system is built on the LangChain ecosystem, which provides core abstractions for document handling, prompt template management, and output parsing. The web API layer utilizes FastAPI as the REST framework with Pydantic for data validation and serialization, enabling type-safe request/response handling through structured schemas defined in the data model definitions.\cite{langchain_document,langchain_prompts,langchain_output_parsers,fastapi_docs,pydantic_docs}
+\subsection{End-to-End Processing Flow}
+The implementation flow follows a consistent progression from raw transcript to user-facing capability. First, incoming SRT transcripts are parsed into structured segments with timestamps and speaker annotations. Second, those segments are merged into retrieval-sized chunks and transformed into document objects for embedding and storage. Third, the same transcript is passed through a summarization path that produces one canonical summary and multiple summary-derived retrieval documents. Finally, the chatbot and search bar query the shared retrieval layer with different ranking and output strategies. This shared flow is the main reason the final system can support three different interaction styles without maintaining three separate backends.
 
-\subsection{Models Integration}
-In the main RAG pipeline, a self-hosted jina-embeddings-v3-f16 model is used for document embedding, bge-reranker-v2-m3-FP16 is used for reranking retrieved candidates, and Qwen3-14B-Q4 serves as the answer generation LLM. For evaluation pipelines, DeepSeek, via the DeepSeek API, is used to generate ground-truth answers. All local models are hosted using llama.cpp server (llama-server), which provides efficient inference with optimized CPU/GPU acceleration and OpenAI-compatible API endpoints.\cite{jina_embeddings_v3,bge_reranker_v2_m3,qwen3_14b_base,deepseek_api_docs,llama_cpp_server}
-
-\subsection{Other Libraries}
-Other supporting libraries are consolidated in Table \ref{tab:third-party-libraries}, which groups tools by their primary roles in retrieval, model integration, data processing, and development workflows.\cite{langchain_openai_embeddings,langchain_chroma,chroma_persistence_sqlite,rank_bm25,metaphone_pypi,rapidfuzz_docs,wordfreq_pypi,dateparser_docs,pandas_docs,numpy_docs,matplotlib_docs,pytest_docs,requests_docs}
+\section{Shared Infrastructure}
+\subsection{Technology Stack}
+The implementation uses LangChain for document abstraction and prompt orchestration, FastAPI and Pydantic for service-layer interfaces, Chroma for persistent vector storage, and a locally hosted model stack for embedding, reranking, summarization, and answer generation.\cite{langchain_document,langchain_prompts,langchain_output_parsers,fastapi_docs,pydantic_docs,jina_embeddings_v3,bge_reranker_v2_m3,qwen3_14b_base,llama_cpp_server}
 
 \begin{table}[H]
   \centering
@@ -38,487 +37,142 @@ Other supporting libraries are consolidated in Table \ref{tab:third-party-librar
   \label{tab:third-party-libraries}
 \end{table}
 
-\section{Retriever System Implementation}
-\subsection{Transcript Chunking Implementation}
-\textbf{4.2.1.1 SRT Parsing}
+\subsection{Global Storage Design}
+All transcript chunks are stored in a single global index rather than separate transcript-specific indices. This simplifies deployment, supports cross-transcript retrieval, and allows transcript scoping through metadata filters. The same storage layer also contains summary-derived documents, so broad transcript-level evidence and low-level chunk evidence can be retrieved through one consistent interface.\cite{langchain_chroma,chroma_persistence_sqlite}
 
-The SRT parser implementation converts SRT format subtitle files into structured Python dictionaries. Figure \ref{fig:fig18} shows the input SRT format, which consists of sequence numbers, timestamps, and text content:
+\subsection{Shared Metadata Model}
+The same metadata model is reused across subsystems. Transcript identifiers, timestamps, speaker information, and upload-date fields are attached during ingestion and then reused for transcript-scoped retrieval, user-facing citations, summary-document generation, and keyword-based filtering. This was an important implementation choice because it allowed search, summarization, and QA to operate over one coherent document representation instead of maintaining separate data-preparation logic for each feature.
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{figures/srt_input_format_with_sequence_numbers_and_timestamps.png}
-  \caption{SRT input format with sequence numbers and timestamps}
-  \label{fig:fig18}
-\end{figure}
+\subsection{Role-Specific Model Stack}
+The model stack is also separated by role rather than handled by one generic LLM endpoint. Embeddings are generated by a dedicated locally-hosted jina-embeddings-v3-f16 model because retrieval quality depends on stable dense representations rather than generative behavior. Reranking is handled by a separate cross-encoder bge-reranker-v2-m3-FP16 model because pairwise relevance scoring has different accuracy and latency requirements from both embeddings and answer generation. The local Qwen3-14B-Q4 model is then reused for the two generative tasks in the system, namely summarization and grounded answer generation. For evaluation pipelines, DeepSeek, via the DeepSeek API, is used to generate ground-truth data. 
 
-The parser produces structured output, as shown in Figure \ref{fig:fig19}:
+All local models are hosted using llama.cpp server, which provides efficient inference with optimized CPU/GPU acceleration and OpenAI-compatible API endpoints.\cite{jina_embeddings_v3,bge_reranker_v2_m3,qwen3_14b_base,deepseek_api_docs,llama_cpp_server} These models are hosted as separate services to better simulate a production deployment environment, where different inference components may be scaled, tuned, or monitored independently. This separation also makes model replacement easier, because any one component can be swapped out when a better embedding model, reranker, or generator becomes available without requiring the entire pipeline to be redesigned.
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{figures/parsed_srt_structure_with_speaker_metadata_extraction.png}
-  \caption{Parsed SRT structure with speaker metadata extraction}
-  \label{fig:fig19}
-\end{figure}
+\section{Summarization Pipeline Implementation}
+The summarization pipeline forms the first subsystem of the hybrid retrieval system. It was added to support high-level transcript understanding and to provide transcript-level retrieval artefacts for broad or vague downstream queries. A single full-context LLM call is not reliable for long transcripts, so the implementation adopts a hierarchical multi-stage design in which summarization is decomposed into chunking, per-chunk extraction, and global synthesis.
 
-Speaker detection handles two patterns: simple >> prefix and >> SpeakerName: format. The speaker name is extracted and removed from the text content, preserving speaker metadata separately.
+\subsection{Transcript Chunking for Summarization}
+The summarization path first splits the transcript into token-counted chunks rather than relying on a simple character limit. Chunk boundaries are aligned as far as possible with speaker turns so that local summaries preserve conversational flow, participant structure, and topic boundaries. Small overlaps are carried across adjacent chunks to reduce information loss at chunk boundaries, which is particularly important for discussions that span multiple turns or contain deferred references.
 
-\textbf{4.2.1.2 Token-Based Merging}
+This chunking strategy differs in purpose from transcript chunking for retrieval. In the summarization subsystem, chunking exists to keep each extraction request within the local model's practical input budget while preserving enough local coherence for reliable structured extraction.
 
-\textbf{Token-Based Chunking Strategy}
+\subsection{Per-Chunk Structured Extraction}
+Each chunk is then processed asynchronously by an LLM to generate a structured JSON-style chunk summary. Each chunk summary captures local discussion points, entities, and action items, forming an intermediate representation that is easier to merge than raw transcript text.
 
-The chunking strategy employs actual tokenizer-based token counting rather than character-based estimation. This approach ensures accurate management of the LLM context window under strict input constraints, while maintaining consistency with the embedding model’s token limits. By enforcing explicit token-based boundaries during chunk construction and retrieval, it prevents both underutilization of available chunk capacity and overflow beyond model limits. As a result, the system retains precise and predictable control over the total amount of retrieved context supplied to downstream generation components.
+\subsection{Hierarchical Merge and Canonical Summary Schema}
+After chunk extraction, the intermediate summaries are merged into a canonical transcript-level summary.
 
-\textbf{Preservation of Natural SRT Boundaries}
+The resulting canonical summary is stored in structured JSON form. Its fields capture transcript-level framing information such as participants, conversation type, purpose, overview, key topics, detailed topics, recurring themes, outline sections, notable segments, action items, and entities. This schema is richer than a simple free-text abstract and is designed to support both user-facing summarization and downstream retrieval over specific summary sections.
 
-Rather than applying arbitrary text splitting, the system preserves the original SRT subtitle boundaries during chunking to retain transcript structure and metadata fidelity. This design maintains speaker diarization integrity across chunks and preserves the natural conversational flow and turn-taking structure, which improves coherence during downstream retrieval and generation. In addition, it ensures timestamp metadata remains accurately aligned with the source transcript, enabling reliable temporal referencing during evaluation and user-facing responses. By respecting these semantic units, the subsequent merging strategy can combine segments more meaningfully without disrupting the underlying conversational context.
+\subsection{Summary Embedding Documents}
+The summarization subsystem does not stop at producing one canonical summary JSON file. During ingestion, the system also transforms the summary into multiple semantically focused retrieval documents, such as overview, topic, outline, segment, action, entity, and fallback miscellaneous documents. Each of these derived documents is tagged with summary-specific metadata and embedded into the same retrieval infrastructure used for transcript chunks.
 
-Small SRT chunks are merged to create appropriately sized segments for embedding and retrieval. Figure \ref{fig:fig20} shows how the merging algorithm operates:
+This design solves two problems simultaneously. First, it avoids representing the entire summary as one monolithic vector, which would be too coarse for topic-level matching. Second, it allows broad or transcript-level queries to retrieve focused summary sections instead of only low-level transcript snippets. These summary documents therefore function as retrieval artefacts, not merely display data.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{figures/token_based_merging_algorithm_for_chunk_size_optimization.png}
-  \caption{Token-based merging algorithm for chunk size optimization}
-  \label{fig:fig20}
+  \includegraphics[width=1.0\textwidth]{figures/canonical_summary_json_used_for_summary_embedding_document_generation.png}
+  \caption{Example canonical summary JSON used as the source structure for summary embedding document generation}
+  \label{fig:summary-embedding-placeholder}
 \end{figure}
 
-\subsection{Embedding Generation and Vector Storage}
+\section{RAG Pipeline Implementation}
+The RAG pipeline remains the primary subsystem for conversational question answering. Its role is to transform a user question into a grounded answer by retrieving relevant evidence, assembling context, and invoking the LLM under explicit grounding constraints.\cite{gao2024retrieval}
 
-\textbf{4.2.2.1 Global Unified Index Architecture}
+\subsection{Transcript Chunking and Shared Indexing}
+At ingestion time, transcripts are parsed from SRT into structured segments, enriched with timestamps and speaker metadata, and merged into retrieval-sized chunks. These chunks are embedded and stored in the same global retrieval layer described earlier in the chapter, which allows the QA subsystem to reuse shared metadata filtering, transcript scoping, and summary-derived retrieval artefacts rather than maintaining a separate storage path. This shared representation was important in the final system because it kept conversational retrieval aligned with the same underlying corpus used by summarization and keyword search. Detailed implementation mechanics for transcript parsing, token-based chunk merging, document construction, and vector-store persistence are provided in Appendix A.
 
-All transcript chunks are stored in a single, global vector store rather than maintaining separate indices per transcript. This architectural decision provides several key advantages: simplified index management (one collection instead of dozens), reduced memory overhead (shared vocabulary and model weights), support for cross-transcript semantic search when queries span multiple documents, and unified metadata-based filtering for transcript scoping. Metadata-based filtering enables efficient restriction of search results to specific transcripts without requiring separate indices.
-
-\textbf{4.2.2.2 Embedding Service}
-
-The embedding functionality is implemented as a separate microservice, hosted via llama.cpp server. This separation from the main LLM service and reranker service enables independent scaling, resource allocation, and model versioning for each component.
-
-\textbf{4.2.2.3 Transcript Processing}
-
-Figure \ref{fig:fig24f} shows the document processing pipeline for a single transcript. The pipeline consists of three stages: (1) parsing the SRT file into structured chunks using the SRT parser (described in Section 4.2.1), (2) creating LangChain Document objects with metadata via the document processor, and (3) adding a transcript\_id field to each document's metadata for efficient filtering during retrieval. For simplicity, the transcript\_id is derived from the filename by removing the .srt extension and replacing periods with underscores, producing clean identifiers like "example\_transcript\_1" that can be used in Chroma metadata filters.
+\subsection{Hybrid Retrieval and Ranking}
+\subsubsection{Complementary Retrieval Signals}
+Retrieval itself is implemented as a hybrid process rather than a single semantic search call. As illustrated in Figure \ref{fig:rag-hybrid-overview}, dense vector retrieval provides robustness to paraphrasing and conceptual similarity, BM25 preserves exact lexical matching for names and technical terms, phonetic retrieval improves recall when ASR introduces sound-alike spelling distortions, and fuzzy matching captures minor character-level corruption in rare tokens.\cite{robertson2009bm25,black2021doublemetaphone,levenshtein1965,jina_embeddings_v3,metzger2024measuring} These signals are intentionally complementary because transcript corpora contain both semantic variation and transcription noise, making any one method insufficient across all query types.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{document_processing_pipeline.png}
-  \caption{Document processing pipeline}
-  \label{fig:fig24f}
+  \includegraphics[width=1.0\textwidth]{figures/hybrid_retrieval_multi_signal_fusion_and_reranking.png}
+  \caption{Hybrid retrieval, fusion, and reranking in the RAG subsystem}
+  \label{fig:rag-hybrid-overview}
 \end{figure}
 
-This processing stage integrates with the chunking logic described in Section 4.2.1, where SRT entries are merged based on token counts to produce chunks of appropriate size for embedding. The resulting Document objects contain both page\_content (the merged chunk text) and metadata (chunk\_id, source filename, timestamps, speaker information, and transcript\_id), enabling both semantic retrieval and metadata-based filtering.
-
-\textbf{4.2.2.4 Batch Embedding Generation and Vector Store Creation}
-
-Embedding generation is the most computationally expensive component of the index building pipeline, requiring forward passes through the transformer-based embedding model for every document chunk. To maximize throughput and GPU utilization, embeddings are generated in batches rather than one-by-one. Figure \ref{fig:fig25d} shows the vector store creation logic using Chroma's from\_documents() method, which automatically batches embedding requests and stores the resulting vectors in the SQLite-backed database.\cite{langchain_chroma,chroma_persistence_sqlite}
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{vector_store_creation_from_documents.png}
-  \caption{Vector store creation from documents}
-  \label{fig:fig25d}
-\end{figure}
-
-Figure \ref{fig:fig25e} demonstrates incremental document addition to an existing vector store. The add\_documents() method extends the existing collection with new embeddings without requiring a full rebuild, preserving the existing embeddings and metadata while appending the new vectors. The optional ids parameter enables upsert behavior (insert if new, update if exists) when document IDs are provided, though the deduplication logic described earlier typically ensures that only new documents reach this stage.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{incremental_document_addition.png}
-  \caption{Incremental document addition}
-  \label{fig:fig25e}
-\end{figure}
-
-LangChain's automatic batching mechanism abstracts the complexity of batch size tuning, request pipelining, and error handling, enabling the index builder to focus on higher-level logic (deduplication, metadata management) rather than low-level HTTP optimization. However, this abstraction does limit control over batch sizes and parallelism; for production deployments with strict latency or throughput requirements, a custom batching implementation with explicit concurrency control may provide better performance.
-
-\textbf{4.2.2.5 ChromaDB Storage and Persistence}
-
-Chroma stores all embeddings, metadata, and collection configuration in a single SQLite database file located in the persist directory.\cite{chroma_persistence_sqlite} Figure \ref{fig:fig26a} illustrates the directory structure, showing how the vector store, BM25 index, and phonetic index are co-located within the same storage hierarchy. This unified structure simplifies backup, replication, and deployment: copying the vector\_stores/global\_combined/ directory to another machine produces a fully functional index without requiring configuration changes or re-embedding.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{chromadb_storage_directory_structure.png}
-  \caption{ChromaDB storage directory structure}
-  \label{fig:fig26a}
-\end{figure}
-
-The embedding generation and vector storage subsystem implements the foundation for the hybrid retrieval pipeline described in Section 4.2.3, providing the semantic signal that complements keyword-based, phonetic, and fuzzy matching. By embedding both queries and documents in the same semantic space, the retriever enables the system to retrieve relevant chunks even when query terms do not appear verbatim in the document text, capturing paraphrasing, synonym variation, and conceptual similarity that lexical methods cannot detect.
-
-\subsection{Multi-Stage Retrieval Process}
-The retrieval pipeline implements a four-stage progressive refinement strategy, each stage narrowing the candidate set with increasing computational cost and precision.
-
-\textbf{4.2.3.1 Stage 1: Hybrid Search}
-
-\textbf{Vector Search (Semantic)}
-
-Vector search implements semantic retrieval using dense embedding representations generated by the Jina embedding model. Each document chunk is encoded as a high-dimensional vector (1024 dimensions for jina-embeddings-v3), and retrieval is performed by computing cosine similarity between the query embedding and all document embeddings in the vector store.\cite{jina_embeddings_v3} This approach captures semantic relationships beyond exact keyword matches, enabling the system to retrieve relevant chunks even when queries are paraphrased, use synonyms, or express concepts differently from the source text.
-
-The core vector search function, shown in Figure \ref{fig:fig27a}, provides a unified interface for semantic retrieval with optional metadata filtering. When a Chroma filter is provided, it restricts the search space to specific transcripts by matching metadata fields, enabling transcript-scoped search. Without filters, the system performs global search across all indexed documents.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{vector_search_core_function_showing_semantic_retrieval_with_optional_c.png}
-  \caption{Vector search core function showing semantic retrieval with optional Chroma metadata filtering}
-  \label{fig:fig27a}
-\end{figure}
-
-Key advantages of vector search include robust handling of paraphrasing, synonym variation, and semantic similarity beyond surface-level keyword matching. It effectively captures conceptual relationships and topical relevance, making it particularly strong for queries that express intent in different words than the source transcript. However, vector search can struggle with proper nouns, rare technical terms, and exact keyword requirements, which motivates the complementary use of BM25 keyword search.
-
-\textbf{BM25 Search (Keyword)}
-
-BM25 implements probabilistic keyword-based retrieval using the BM25Okapi ranking function, a well-established algorithm in information retrieval that scores documents based on term frequency (TF) and inverse document frequency (IDF).\cite{robertson2009bm25,rank_bm25} Unlike semantic search, which relies on dense vector representations, BM25 performs exact lexical matching, making it particularly effective for queries containing proper nouns, technical terminology, product names, and specific keywords that must appear verbatim in retrieved chunks.
-
-\textbf{Tokenization Strategy}
-
-Figure \ref{fig:fig28a} shows the default tokenizer implementation, which applies a simple lowercase split on whitespace. This lightweight approach avoids dependencies on NLP libraries while providing adequate performance for most queries.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{bm25_tokenization_function_using_lowercase_split.png}
-  \caption{BM25 tokenization function using lowercase split}
-  \label{fig:fig28a}
-\end{figure}
-
-\textbf{Index Initialization}
-
-The BM25 index is constructed once and persisted alongside the vector store. It is constructed by tokenizing all document chunks in the corpus and building an inverted index structure, as shown in Figure \ref{fig:fig28b}. The initialization process iterates over all LangChain Document objects, applies the tokenizer to each document's page content, and passes the tokenized corpus to the BM25Okapi constructor. The BM25Okapi class internally builds an inverted index mapping terms to document IDs and computes IDF weights for each unique term in the corpus.\cite{rank_bm25} This preprocessing step is performed once during index building and enables fast scoring at query time.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{bm25_index_initialization_with_corpus_tokenization.png}
-  \caption{BM25 index initialization with corpus tokenization}
-  \label{fig:fig28b}
-\end{figure}
-
-\textbf{Querying, Scoring and Ranking}
-
-At query time, the BM25 retriever tokenizes the input query using the same tokenization logic applied during indexing to ensure consistency. The retrieval function supports optional metadata-based filtering to restrict results to specific transcripts, as demonstrated in Figure \ref{fig:fig28c}. The system first identifies document indices matching the specified metadata field and value, then invokes the optimized get\_batch\_scores method to compute BM25 scores only for the filtered subset of documents.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{bm25_query_tokenization_and_metadata_filtering.png}
-  \caption{BM25 query tokenization and metadata filtering}
-  \label{fig:fig28c}
-\end{figure}
-
-After computing BM25 scores for candidate documents, the retriever ranks results by score in descending order and selects the top-k highest-scoring chunks.
-
-Key advantages of BM25 search include strong performance on exact keyword queries, robust handling of proper nouns and technical terminology, and computational efficiency relative to neural retrieval models. BM25 excels when query terms must appear verbatim in the retrieved context, making it complementary to vector search, which prioritizes semantic similarity over exact lexical matches.
-
-\textbf{Phonetic Search (ASR Error Handling)}
-
-Phonetic search addresses a critical limitation of exact lexical matching in ASR-generated transcripts: proper nouns, technical terms, and rare vocabulary are frequently misrecognized by speech-to-text models, resulting in transcription errors that preserve phonetic similarity but differ in spelling. For example, a query for "Samsung" may fail to retrieve chunks where the ASR system transcribed the same spoken word as "Samson" or "Samsang." Since these variants share similar pronunciation, they should ideally be retrieved despite lexical differences. Phonetic search solves this problem by encoding words into phonetic representations using the Double Metaphone algorithm, enabling sound-alike matching that is robust to ASR transcription errors.\cite{black2021doublemetaphone,metaphone_pypi}
-
-\textbf{Tokenization and Word Filtering}
-
-Before phonetic encoding, the indexer tokenizes input text by extracting alphabetic words and filtering short tokens, as illustrated in Figure \ref{fig:fig29b}. The tokenize\_and\_encode method applies a regular expression ([a-zA-Z]+) to extract contiguous alphabetic sequences, discarding punctuation, numbers, and whitespace. Words shorter than 3 characters are filtered out because short words (e.g., "is", "at", "on") are too common to provide discriminative phonetic matches and would introduce noise into the index. This length threshold balances index size (excluding uninformative short words) against recall (retaining meaningful terms).
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{phonetic_word_tokenization_and_filtering.png}
-  \caption{Phonetic word tokenization and filtering}
-  \label{fig:fig29b}
-\end{figure}
-
-\textbf{Double Metaphone Encoding}
-
-Figure \ref{fig:fig29c} shows the core phonetic encoding logic, which applies the Double Metaphone algorithm to each filtered word. The doublemetaphone function (from the metaphone library) returns a tuple of two phonetic codes: a primary code and an optional alternate code.\cite{black2021doublemetaphone,metaphone_pypi} The implementation extracts only the primary code, as testing revealed that the alternate code provided minimal additional recall while significantly increasing index size. The phonetic pairs are deduplicated using a seen set to prevent redundant entries when the same word appears multiple times in a document.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{double_metaphone_phonetic_encoding.png}
-  \caption{Double Metaphone phonetic encoding}
-  \label{fig:fig29c}
-\end{figure}
-
-
-The Double Metaphone algorithm is particularly well-suited for ASR error handling because it produces consistent codes for homophones and phonetically similar words.\cite{black2021doublemetaphone} For example, "Samsung", "Samson", and "Samsang" produce phonetically similar codes, enabling retrieval across spelling variations. Similarly, other brand names like "Apple" and "Aple" would also produce matching phonetic codes. Figure \ref{fig:fig31} provides additional examples of phonetic encodings.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{figures/phonetic_encoding_examples_for_homophone_matching.png}
-  \caption{Phonetic encoding examples for homophone matching}
-  \label{fig:fig31}
-\end{figure}
-
-\textbf{Query Processing and Metadata Filtering}
-
-At query time, the phonetic indexer encodes the query into phonetic codes using the same tokenize\_and\_encode method applied during indexing, then executes a SQL query to find all chunks containing any of the query codes. Figure \ref{fig:fig29e} shows the SQL query construction logic for the filtered case, where transcript IDs are provided. The query uses the IN operator to match any query code and any transcript ID, then groups results by chunk\_id to count the number of matching codes per chunk. Chunks with higher overlap counts are ranked higher, as they contain more phonetic matches with the query. The ORDER BY overlap\_count DESC clause ensures that the most relevant chunks appear first in the result list.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{phonetic_retrieval_sql_query_with_transcript_filtering.png}
-  \caption{Phonetic retrieval SQL query with transcript filtering}
-  \label{fig:fig29e}
-\end{figure}
-
-\textbf{Score Conversion and Document Retrieval}
-
-The phonetic\_indexer.retrieve method returns a list of (chunk\_id, overlap\_count) tuples. To integrate with the main retrieval pipeline, these scores must be converted into LangChain Document objects. Figure \ref{fig:fig29g} shows the run\_phonetic\_search wrapper function, which calls the phonetic indexer, converts the (chunk\_id, count) tuples into a scores dictionary, builds a Chroma metadata filter if transcript filtering is required, and delegates to the \_convert\_scores\_to\_ranked\_list utility to fetch the actual Document objects from the vector store. This utility function (not shown in detail) queries Chroma by chunk\_id to retrieve the full document content and metadata, then sorts the results by phonetic score.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{phonetic_score_conversion_and_document_retrieval.png}
-  \caption{Phonetic score conversion and document retrieval}
-  \label{fig:fig29g}
-\end{figure}
-
-Key advantages of phonetic search include robust handling of ASR transcription errors, particularly for proper nouns, product names, and technical terms that are frequently misrecognized. The SQLite-backed index provides efficient lookup with logarithmic complexity for code-based queries, and the overlap scoring mechanism naturally ranks chunks with higher phonetic similarity. This approach is complementary to BM25 (which requires exact lexical matches) and vector search (which may not distinguish between phonetically similar terms). Phonetic search is particularly effective when users know the approximate pronunciation of a term but are uncertain of the exact spelling used in the transcript.
-
-\textbf{Fuzzy Matching (Rare Token Typos)}
-
-Fuzzy matching provides a complementary approach to phonetic search by using edit-distance similarity to detect and correct typographical errors and spelling variations in rare tokens. While phonetic search maps phonetically similar words to the same encoded representation, fuzzy matching directly computes string similarity using the Levenshtein edit distance, enabling it to handle character-level perturbations such as insertions, deletions, substitutions, and transpositions.\cite{levenshtein1965} This makes fuzzy matching particularly effective for cases where ASR errors result in lexically close but phonetically distinct transcriptions (e.g., "Samsung" vs "Samsang", "GPT4" vs "GPT-4").
-
-However, applying fuzzy matching indiscriminately across all query tokens is computationally prohibitive, as it requires pairwise edit-distance computation between query tokens and all tokens in all candidate documents. Furthermore, most common words (e.g., "the", "said", "meeting") are unlikely to contain typos and are already well-covered by semantic and keyword search. To balance recall and computational cost, the implementation adopts a selective fuzzy matching strategy: only rare tokens are subjected to fuzzy matching, while common tokens are excluded from this expensive matching process.
-
-\textbf{Rare Token Detection Using Zipf Frequency}
-
-Figure \ref{fig:fig30a} shows the rare token detection logic, which uses the Zipf frequency metric from the wordfreq library to classify tokens as common or rare.\cite{wordfreq_pypi} The Zipf scale represents word frequency as the base-10 logarithm of occurrences per billion words in a large corpus, providing an intuitive scale where high values indicate common words and low values indicate rare words.\cite{wordfreq_pypi} The threshold is set at 4.0, corresponding to approximately 1 occurrence per 100,000 words. Words with Zipf frequency below 4.0 are classified as rare and subjected to fuzzy matching, while words above the threshold are considered too common to benefit from this expensive operation. Words not found in the wordfreq dictionary (e.g., proper nouns, technical jargon) return a frequency of 0.0 and are automatically classified as rare, which is the desired behavior for ASR error handling.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{rare_token_detection_using_zipf_frequency.png}
-  \caption{Rare token detection using Zipf frequency}
-  \label{fig:fig30a}
-\end{figure}
-
-The Zipf threshold of 4.0 was selected based on empirical testing and represents a reasonable trade-off between recall and computational cost. Common words like "the" (Zipf $\approx$ 7.8), "meeting" (Zipf $\approx$ 5.2), and "cat" (Zipf $\approx$ 4.6) are excluded from fuzzy matching, as they rarely contain errors and do not benefit from edit-distance correction. In contrast, rare terms like "Samsung" (Zipf $\approx$ 3.8), "iPhone" (Zipf $\approx$ 3.5), and "GPT4" (Zipf = 0.0) are flagged for fuzzy matching, as these are prone to ASR misrecognition and typos.
-
-\textbf{Extracting Rare Tokens from Query}
-
-Figure \ref{fig:fig30b} demonstrates the extraction of rare tokens from the input query. The extract\_rare\_tokens method first tokenizes the query using a simple regular expression to extract alphanumeric word sequences, then filters the token list by applying the is\_rare\_token predicate to each token. Only tokens classified as rare are returned, effectively reducing the fuzzy matching workload by excluding common words. If no rare tokens are detected in the query, the fuzzy matching pipeline short-circuits and returns an empty result list, avoiding unnecessary computation.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{extracting_rare_tokens_from_query.png}
-  \caption{Extracting rare tokens from query}
-  \label{fig:fig30b}
-\end{figure}
-
-For example, the query "Samsung phone meeting" would extract only "Samsung" as a rare token, while "phone" and "meeting" would be filtered out. This selective approach ensures that fuzzy matching focuses computational resources on the terms most likely to benefit from error correction.
-
-\textbf{Fuzzy Scoring Algorithm: Pairwise Edit-Distance Computation}
-
-The core fuzzy scoring algorithm, shown in Figures \ref{fig:fig30d} and \ref{fig:fig30e}, iterates over all candidate documents and computes the maximum edit-distance similarity between query rare tokens and document tokens. For each document, the algorithm tokenizes the document content, then performs a nested loop over query rare tokens and document tokens, computing the fuzzy ratio using the RapidFuzz library. The fuzz.ratio function returns an integer score in the range [0, 100] representing percentage similarity, which is normalized to a [0, 1] scale by dividing by 100. The maximum score across all query-document token pairs is retained as the document's fuzzy score.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{fuzzy_scoring_algorithm_setup_and_initialization.png}
-  \caption{Fuzzy scoring algorithm - setup and initialization}
-  \label{fig:fig30d}
-\end{figure}
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{fuzzy_scoring_algorithm_nested_loop_with_rapidfuzz_ratio.png}
-  \caption{Fuzzy scoring algorithm - nested loop with RapidFuzz ratio}
-  \label{fig:fig30e}
-\end{figure}
-
-The RapidFuzz library is used for edit-distance computation because it provides highly optimized implementations of the Levenshtein distance algorithm, significantly outperforming pure Python alternatives.\cite{rapidfuzz_docs,levenshtein1965} Example fuzzy ratios include: "Samsung" vs "Samsang" (93\% similarity), "Samsung" vs "Samson" (86\% similarity), and "GPT4" vs "GPT-4" (80\% similarity).
-
-\textbf{Top-K Selection and Ranking}
-
-After computing fuzzy scores for all candidate documents, the algorithm sorts the results by score in descending order and selects the top-k matches, as shown in Figure \ref{fig:fig30f}. This ranking step ensures that only the most relevant fuzzy matches are returned, preventing the retrieval of marginally similar chunks that may introduce noise into the final fused result set.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{fuzzy_top_k_selection_and_ranking.png}
-  \caption{Fuzzy top-k selection and ranking}
-  \label{fig:fig30f}
-\end{figure}
-
-Phonetic search and fuzzy matching address ASR-induced errors through complementary mechanisms. Phonetic search uses Double Metaphone encoding to efficiently retrieve homophones and sound-alike terms via fast indexed lookup, making it effective for cases where the transcription error preserves pronunciation (e.g., "Samsung" vs "Samson"). In contrast, fuzzy matching relies on edit-distance similarity to correct character-level perturbations, making it effective for typos, hyphenation differences, and cases where the error is lexical rather than phonetic (e.g., "GPT4" vs "GPT-4", "iPhone" vs "i Phone").
-
-Phonetic search is applied broadly to all tokens of length $\geq$ 3 characters, as the SQLite-backed index enables efficient lookup with logarithmic complexity. Fuzzy matching is restricted to rare tokens (Zipf < 4.0) because pairwise edit-distance computation scales poorly with candidate set size, making it computationally expensive. Together, these signals improve retrieval robustness under noisy transcripts by capturing both phonetic equivalence and character-level perturbations, providing complementary coverage of the ASR error space.
-
-\textbf{Integration: Parallel Multi-Signal Retrieval}
-
-The four retrieval methods described above are executed in parallel during Stage 1 of the retrieval pipeline. Parallel execution is feasible because the four signals operate independently: each method accesses its own index and produces a ranked list of documents without requiring input from other retrievers. This independence enables concurrent execution, reducing overall retrieval latency compared to sequential execution.
-
-\textbf{Summary: Search Method Characteristics}
-
-Table \ref{tab:search-method-characteristics} summarizes the key characteristics of all four search methods implemented in Stage 1, including their algorithms, index types, scoring metrics, default top-k values, and primary use cases. This comparison highlights the complementary nature of the four signals: vector search excels at semantic similarity, BM25 at exact keyword matching, phonetic search at handling ASR transcription errors, and fuzzy matching at correcting typos in rare terms. The varying index types reflect different performance trade-offs: vector search and phonetic search use persistent database-backed indices for fast lookup, BM25 uses an inverted index for maximum speed, and fuzzy matching performs full scans over the candidate pool to compute edit-distance similarity.
-
-\begin{table}[H]
-  \centering
-  \setlength{\tabcolsep}{4pt}
-  \renewcommand{\arraystretch}{1.15}
-  \begin{tabular}{|
-    >{\centering\arraybackslash}m{0.16\textwidth}|
-    >{\centering\arraybackslash}m{0.19\textwidth}|
-    >{\centering\arraybackslash}m{0.16\textwidth}|
-    >{\centering\arraybackslash}m{0.14\textwidth}|
-    >{\centering\arraybackslash}m{0.07\textwidth}|
-    >{\centering\arraybackslash}m{0.20\textwidth}|
-  }
-    \hline
-    \textbf{Search Method} & \textbf{Algorithm} & \textbf{Index Type} & \textbf{Scoring Metric} & \textbf{Top-K} & \textbf{Best For} \\
-    \hline
-    Vector Search & Cosine similarity over embeddings & Dense vectors (Chroma) & Embedding distance & 10 & Semantic similarity, paraphrasing \\
-    \hline
-    BM25 Search & Probabilistic TF-IDF ranking & Inverted index & BM25 score & 25 & Keyword matching, proper nouns \\
-    \hline
-    Phonetic Search & Double Metaphone encoding & SQLite phonetic index & Overlap count & 10 & ASR errors, homophones \\
-    \hline
-    Fuzzy Matching & Edit-distance (RapidFuzz) & No index (full scan) & Fuzzy ratio & 10 & Typos, spelling variations \\
-    \hline
-  \end{tabular}
-  \caption{Search method characteristics comparing algorithm, indexing strategy, scoring approach, default retrieval limits, and primary use cases}
-  \label{tab:search-method-characteristics}
-\end{table}
-
-The default top-k values are tuned based on the signal's role in the hybrid pipeline. Vector search and phonetic search retrieve 10 chunks each, providing a focused set of semantically or phonetically relevant results. BM25 retrieves more chunks because keyword-based recall is typically lower than semantic recall, requiring a larger initial candidate set. Fuzzy matching also retrieves 10 chunks but only activates when rare tokens are detected, making its contribution selective rather than universal. These top-k values are configurable and can be adjusted during system tuning to balance recall, precision, and computational cost.
-
-\textbf{4.2.3.2 Stage 2: Reciprocal Rank Fusion (RRF)}
-
-The RRF algorithm combines rankings from all four retrieval signals into a unified ranking. Figure \ref{fig:fig35} shows the RRF weights for hybrid retrieval signals:
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{figures/reciprocal_rank_fusion_weights_for_hybrid_retrieval_signals.png}
-  \caption{Reciprocal Rank Fusion weights for hybrid retrieval signals}
-  \label{fig:fig35}
-\end{figure}
-
-The RRF approach provides score normalization across heterogeneous retrieval methods, including semantic, keyword, phonetic, and fuzzy signals, and remains robust to inherent score scale differences between these components. Its weighted formulation further enables explicit prioritization of primary retrieval signals (e.g., semantic and BM25) while still incorporating supplementary signals (e.g., phonetic and fuzzy) to improve recall under ASR noise.\cite{cormack2009reciprocal} In addition, RRF is well-established in information retrieval literature, straightforward to implement, and computationally efficient, making it suitable for low-latency retrieval pipelines. Overall, it effectively combines complementary retrieval strengths to produce a more accurate and ASR-robust candidate set for downstream reranking and generation.
-
-\textbf{4.2.3.3 Stage 3: Cross-Encoder Reranking}
-
-Stage 3 applies a cross-encoder neural reranking model to re-score the candidates retrieved from RRF fusion, providing a final precision-focused refinement step. While the retrieval methods in Stage 1 (vector search, BM25, phonetic, fuzzy) and the fusion algorithm in Stage 2 (RRF) cast a wide net to maximize recall, cross-encoder reranking applies a more computationally expensive but significantly more accurate relevance model to select the final top-k chunks for context assembly.
-
-\textbf{Cross-Encoder vs Bi-Encoder Architecture}
-
-The distinction between bi-encoder and cross-encoder architectures is fundamental to understanding why reranking improves retrieval quality. Bi-encoder models (such as the Jina embedding model used for vector search) independently encode the query and documents into fixed-length vectors, then compute similarity via cosine distance.\cite{jina_embeddings_v3} This approach enables fast retrieval through pre-computed document embeddings and efficient vector search, but it lacks the capacity to model fine-grained query-document interactions because the query and document are encoded separately without mutual attention.
-
-Cross-encoder models, in contrast, jointly encode the query and document as a single concatenated input, allowing the transformer layers to model token-level interactions between query terms and document terms.\cite{nogueira2019passage} This bidirectional attention mechanism enables the model to capture nuanced relevance signals such as term proximity, phrase matching, and semantic entailment that bi-encoders cannot represent. However, cross-encoders require inference for every query-document pair, making them prohibitively expensive for initial retrieval over large corpora. The two-stage retrieval architecture (bi-encoder for fast retrieval $\rightarrow$ cross-encoder for precise reranking) balances efficiency and precision by applying the slow but accurate cross-encoder only to a small candidate set (30-40 chunks from RRF fusion).
-
-\textbf{Reranker Service}
-
-The reranking functionality is implemented as a separate microservice, hosted via llama.cpp server. This separation from the main LLM service and embedding service enables independent scaling and resource allocation for each component.
-
-\textbf{Score-Based Sorting}
-
-At reranking time, the system constructs an HTTP POST request containing the query string and the list of candidate document texts. The reranker service then returns a JSON response containing a list of results, where each result includes an index (referring to the position in the input documents array) and a relevance\_score (typically in the range [0, 1], with higher scores indicating greater relevance). Figure \ref{fig:fig38a} shows the expected response format.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{expected_response_format.png}
-  \caption{Expected response format}
-  \label{fig:fig38a}
-\end{figure}
-
-\textbf{Metadata Preservation and Document Reconstruction}
-
-The system maps the reranked indices back to the original Document objects, preserving all metadata while adding the rerank\_score field, as demonstrated in Figure \ref{fig:fig38c}. For each result, the index is validated to ensure it falls within the bounds of the input documents array, then the corresponding document is retrieved. A new Document object is constructed with the same page\_content and a merged metadata dictionary that includes all original fields (chunk\_id, transcript\_id, timestamps, etc.) plus the new rerank\_score. This metadata preservation ensures that downstream components (context formatting, LLM prompts) can access both the original chunk information and the reranking score.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{mapping_results_to_original_documents.png}
-  \caption{Mapping results to original documents}
-  \label{fig:fig38c}
-\end{figure}
-
-Finally, the top\_n limit is enforced locally by slicing the reranked\_docs list, as shown in Figure \ref{fig:fig38d}. This client-side enforcement is necessary because not all reranking servers respect the top\_n parameter in the request payload, and it provides a consistent guarantee that exactly top\_n (or fewer, if the input was smaller) documents are returned.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{top_n_selection.png}
-  \caption{Top-n selection}
-  \label{fig:fig38d}
-\end{figure}
-
-Key advantages of cross-encoder reranking include significantly improved relevance precision compared to bi-encoder similarity or keyword-based scoring, the ability to capture fine-grained semantic entailment and term proximity signals, and robustness to lexical variation (paraphrasing, synonyms) that BM25 cannot handle. The main trade-off is computational cost: cross-encoder inference requires $O(n)$ forward passes for $n$ candidate documents, whereas bi-encoder similarity requires only a single query encoding plus $O(1)$ vector lookups. The two-stage architecture mitigates this cost by limiting cross-encoder reranking to a small candidate set (30-40 chunks from RRF fusion), keeping reranking latency manageable.
+\subsubsection{Role of Individual Retrieval Methods}
+Each retrieval signal addresses a different failure mode. Vector retrieval is strongest when the user paraphrases content that does not appear verbatim in the transcript. BM25 is most reliable when the query contains explicit lexical anchors such as product names, brands, or technical terms. Phonetic retrieval is valuable when automatic speech recognition preserves pronunciation but distorts spelling, while fuzzy matching helps recover rare terms affected by small character-level corruption. In combination, these methods produce a broader and more robust candidate set than any single retriever could provide on its own.
+
+\subsubsection{Fusion and Precision-Oriented Reranking}
+The outputs of these retrievers are not passed directly to generation. Instead, the system first combines them with Reciprocal Rank Fusion to reward candidates that are consistently relevant across methods, and then applies a cross-encoder reranker to the fused candidate pool for precision-oriented final ordering.\cite{cormack2009reciprocal,nogueira2019passage} This two-stage ranking strategy balances recall and precision: the first stage casts a broad net over noisy transcript data, while the second sharpens the evidence set that is ultimately shown to the language model. The detailed implementation of the individual retrievers, rank fusion, and reranker response handling is deferred to Appendix A.
 
 \subsection{Context Assembly and Prompt Construction}
+After reranking, the selected chunks are formatted into grounded context blocks that preserve transcript identifiers, timestamps, and citation metadata. This context is then assembled into a constrained prompt together with the user's question and chat history, so answer generation remains explicitly tied to retrievable evidence rather than free-form recall. For broader or more ambiguous questions, the pipeline can also inject summary-derived framing so that transcript-level context and fine-grained evidence work together within the same prompt construction flow.\cite{langchain_prompts,langchain_chatprompt,langchain_messages_placeholder}
 
-After the retrieval and reranking stages produce a ranked list of relevant document chunks, these chunks must be transformed into a structured context string suitable for LLM consumption. Context assembly involves formatting the retrieved chunks with appropriate metadata headers, concatenating them in a readable format, and injecting the result into a prompt template that defines the assistant's behavior and constraints. This section describes the implementation of context formatting, prompt template design, and LLM invocation for answer generation.
+As a final engineering design choice, the RAG pipeline was kept modular rather than collapsed into one opaque end-to-end model call. Chunk construction, hybrid retrieval, reranking, and prompt assembly can therefore be tuned independently as transcript characteristics or product requirements change. Detailed implementation mechanics, data structures, and supporting screenshots are deferred to Appendix A.
 
-\textbf{4.2.4.1 Context Formatting}
+\section{Keyword-Based Search Implementation}
+The keyword-based search subsystem complements the chatbot by prioritising direct retrieval rather than answer generation. It is intended for users who want inspectable search results quickly, such as all mentions of a product, statements by a specific speaker, or snippets within a particular date range.
 
-The context formatting layer transforms raw Document objects into a structured text representation that the LLM can interpret effectively. Figure \ref{fig:fig40a} demonstrates the formatting implementation, which processes each document individually and constructs a header containing the chunk ID, timestamp range, and sequential position within the result set. Each chunk is formatted as a header line followed by its content, with chunks separated by double newlines for clear visual separation. The header format provides the LLM with temporal context (start and end times) and positional information (chunk ID and position in ranked list), enabling it to reference specific chunks in its responses if needed.
+\subsection{Keyword-First Retrieval Design}
+The keyword-based search subsystem reuses the same retrieval primitives as the RAG pipeline, namely vector search, BM25, phonetic search, fuzzy matching, Reciprocal Rank Fusion, and reranking. Its orchestration, however, is designed for global search across the transcript collection rather than transcript-scoped conversational QA. In this interaction mode, BM25 is weighted more heavily so that exact lexical matches dominate for queries involving names, brands, technical terms, and other explicit keywords.
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{chunk_formatting_with_individual_metadata_headers.png}
-  \caption{Chunk formatting with individual metadata headers}
-  \label{fig:fig40a}
-\end{figure}
+This design also changes the presentation granularity of the results. The chatbot operates within a selected transcript and retrieves a flat set of evidence chunks to support answer generation, whereas the search bar performs global retrieval and returns results grouped by transcript. Grouping at transcript level is more appropriate for search-oriented interaction because it allows users to identify the most relevant transcripts first before examining the supporting snippets within each result group.
 
-Figure \ref{fig:fig40b} shows an example of the output format for a single document.
+\subsection{Two-Phase Search Flow}
+The search subsystem performs retrieval in two phases. In Phase 1, the system ranks transcripts using summary-derived documents only. This provides a transcript-level relevance signal that is cleaner than mixing all low-level content chunks together. Summary chunks are especially useful here because they represent the high-level contents of a transcript and can therefore act as transcript proxies.
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{output_format_example.png}
-  \caption{Output Format Example}
-  \label{fig:fig40b}
-\end{figure}
-
-The timestamp format follows the SRT standard, preserving millisecond precision from the original transcript. This enables users to locate specific segments in the source audio or video if they wish to verify the LLM's answers. The chunk ID field corresponds to the sequential position of the chunk within its source transcript, allowing for precise cross-referencing with the original document.
-
-\textbf{Citation Formatting for User Transparency}
-
-In addition to formatting context for the LLM, the system provides a citation formatting function that generates structured metadata for user-facing displays, as shown in Figure \ref{fig:fig40d}. This function returns both the formatted context string and a list of source citations, each containing the chunk ID, timestamp, source filename, transcript ID, and a preview of the chunk content. The citation information enables web interfaces to display retrieval provenance alongside generated answers, allowing users to verify the LLM's responses against the source material and explore the full context if needed.
+In Phase 2, the selected transcripts are searched again at chunk level. Retrieval is scoped to one transcript at a time, the fused results are reranked, and the final top chunks are returned as grouped results.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{citation_formatting_for_user_transparency_and_source_attribution.png}
-  \caption{Citation formatting for user transparency and source attribution}
-  \label{fig:fig40d}
+  \includegraphics[width=1.0\textwidth]{figures/keyword_based_search_workflow_in_the_final_system.png}
+  \caption{Keyword-based search workflow in the final system}
+  \label{fig:search-implementation-placeholder}
 \end{figure}
 
-The preview field contains the first 100 characters of each chunk, providing users with a quick glimpse of the content without requiring them to expand the full text. The full\_text field preserves the complete chunk content for detailed inspection. This dual-level presentation balances information density with accessibility, enabling users to quickly scan sources while retaining the ability to dive deeper when necessary.
+\subsection{Date and Speaker Filtering}
+The search bar supports natural-language date filters and speaker filters in addition to free-text queries. Date expressions are parsed into time ranges using the dateparser library, then matched against transcript upload metadata to ensure all relevant transcripts are considered before chunk-level retrieval.\cite{dateparser_docs} Speaker filtering relies on speaker metadata extracted during transcript parsing and mapped onto the corresponding chunk metadata, enabling transcript-scoped filtering by one or more speakers.
 
-\textbf{4.2.4.2 Prompt Templates}
+\subsection{Relationship to the RAG Subsystem}
+Although the search bar and chatbot share the same retrieval building blocks, they are optimised for different interaction styles. The RAG subsystem uses retrieval to assemble grounded context for answer generation, whereas the search subsystem uses retrieval to return directly inspectable snippet lists. This separation avoids overloading the chatbot interface with direct lookup tasks while still allowing both subsystems to benefit from the same shared indices and metadata.
 
-The prompt template layer defines the structure and content of messages sent to the LLM, including the system message that sets the assistant's role and behavior, the human message that contains the user's question, and placeholders for dynamic content such as retrieved context and conversation history. The system uses LangChain's ChatPromptTemplate abstraction to construct multi-turn conversation prompts with type-safe variable substitution.\cite{langchain_prompts,langchain_chatprompt}
+\section{Deployment Implementation}
+The final step in the project was to expose these capabilities through a deployable retrieval server so that the implemented pipelines could be used by the broader Meadow9+ system rather than remaining as development-only components. The core deployment architecture has already been implemented, and most operational interfaces required by the application are already in place. Although the system has not yet been rolled out as a full production deployment, moving from the current implementation to production mainly requires environment-specific integration and infrastructure changes rather than a redesign of the retrieval system itself.
 
-\textbf{System Message Design}
+\subsection{Retrieval Server Deployment Architecture}
+The implemented retrieval system is packaged as a separate FastAPI-based retrieval server, consistent with the architectural direction introduced in Chapter 3. This deployment decision keeps the new retrieval logic isolated from the existing Meadow9+ backend while still making the system accessible through a stable service interface. In practice, the runtime is composed of four cooperating services: a FastAPI application layer, a generation service for summarization and answer synthesis, an embedding service for dense retrieval, and a reranking service for precision-oriented evidence ordering. This separation preserves the modular implementation described earlier in the chapter while making the runtime easier to maintain, tune, and extend.\cite{fastapi_docs,pydantic_docs,llama_cpp_server}
 
-Figure \ref{fig:fig42a} shows the RAG system message template, which establishes the assistant's role as a helpful agent with access to transcript excerpts and defines explicit constraints on its behavior. The system message includes three key components: (1) a role definition ("You are a helpful assistant"), (2) a context injection placeholder (\{retrieved\_context\}), and (3) behavioral constraints that ground the LLM's responses in the provided context and prohibit hallucination.
+The service-oriented deployment also reflects the role-specific model design introduced in Section 4.2.4. Embedding, reranking, and generation are not treated as one monolithic inference endpoint; instead, each is exposed as an independent runtime component. This allows individual services to be replaced, reconfigured, or scaled without redesigning the rest of the retrieval pipeline, which is important for a system expected to evolve as better local models become available. In this sense, the current retrieval server should be understood as an integration-ready service layer for Meadow9+ rather than as a claim that the final production rollout has already been completed.
+
+\subsection{Persistent Runtime Storage}
+The deployed server uses persistent storage with a clear separation of responsibilities. Structured transcript metadata, raw transcript text, upload timestamps, and canonical summary outputs are currently stored in SQLite so that uploaded transcripts remain accessible across server restarts and can be listed, retrieved, and filtered through the application layer. In the present implementation, SQLite functions primarily as a lightweight placeholder for the MongoDB-based transcript storage already used by the existing Meadow9+ server, allowing the retrieval workflow to be implemented and tested locally without depending on direct production-database integration. In parallel, transcript chunks and summary-derived retrieval documents are embedded and stored in a persistent Chroma vector store, allowing the same deployed corpus to support semantic retrieval, summary-level transcript ranking, and transcript-scoped chunk search.\cite{langchain_chroma,chroma_persistence_sqlite}
+
+This storage design is important because it avoids treating retrieval as an in-memory prototype while still remaining compatible with the broader Meadow9+ architecture. Since SQLite is only simulating the existing MongoDB-backed transcript store, integration into the production environment mainly requires adapting the persistence layer to the server's existing database workflow, while leaving the downstream retrieval pipeline unchanged.
+
+\subsection{End-to-End Deployed Processing Flow}
+When a new transcript is uploaded, the deployed server validates the input, parses the transcript into structured segments, constructs retrieval-sized chunks, generates the transcript summary, stores transcript artefacts in persistent storage, and then indexes both chunk documents and summary-derived documents into the shared vector store. As a result, ingestion, summarization, persistence, and indexing are all handled within one deployed runtime path rather than through disconnected development scripts.
+
+In the current implementation, this workflow is triggered via transcript-upload endpoints, enabling the full pipeline to be tested and evaluated independently during development. For production deployment, the same ingestion pipeline can be seamlessly adapted to receive transcript data directly from the Meadow9+ backend server instead of manual uploads. Under this integration, only the source of the transcript data changes, while all downstream processing stages—namely parsing, chunking, summarization, persistence, indexing, and retrieval—remain unchanged.
+
+Once transcripts have been ingested, the same deployment supports the system's three user-facing interaction modes. The backend can list uploaded transcripts, return stored summary or raw-content views for a selected transcript, execute keyword-based global search over the uploaded corpus, and serve transcript-aware chatbot or one-off query requests through the RAG pipeline. This end-to-end deployment is therefore not limited to inference alone; it operationalizes the entire transcript lifecycle from upload to retrieval-driven interaction.
+
+\subsection{Streaming Chat Responses}
+The deployed retrieval server also supports streaming chat responses, which was missing from the Meadow9+ chatbot implementation. Instead of waiting for the full answer to be generated before returning any output, the server can stream partial answer tokens to the client as they are produced. This improves perceived latency because users receive visible progress early rather than experiencing one long blocking delay.
+
+\subsection{Retrieved Evidence in Chat Responses}
+The deployed chat interface also returns the retrieved transcript chunks used to support answer generation. Rather than exposing only a final generated response, the system can surface supporting transcript excerpts together with metadata such as timestamps and source identifiers. This design directly reflects the transparency goals discussed in Chapter 2, where Meadow9+ was motivated as a system that should expose inspectable evidence rather than behave as a fully opaque chatbot.
+
+Returning retrieved chunks improves verifiability because users can inspect which transcript segments were actually used to ground an answer. This in turn improves user trust and confidence, especially in professional settings where incorrect attribution or hallucinated conclusions may have practical consequences.
+
+\subsection{Operational Interfaces and Health Monitoring}
+The FastAPI layer provides the operational boundary between the retrieval server and the rest of the system. Instead of exposing internal LangChain pipelines directly, the implementation wraps transcript ingestion, transcript retrieval, search, question-answering, streaming chat, and health-monitoring capabilities behind explicit service interfaces. This makes the deployed system easier to integrate with the Meadow9+ backend and keeps application-facing behavior separate from the lower-level implementation details of chunking, retrieval, and prompting.\cite{fastapi_docs,pydantic_docs} A compact summary of the implemented interface categories is provided in Appendix A, Table \ref{tab:retrieval-server-interfaces}.
+
+Operational monitoring is also built into the deployment. A health-check interface reports whether the retrieval runtime and its upstream dependencies are available, including the embedding, reranking, and generation services, as well as whether the retrieval layer has been initialized successfully. This is a practical deployment requirement because the final system depends on multiple cooperating components rather than one standalone process. Detecting service availability at runtime makes failures easier to diagnose and provides a clearer integration contract for the surrounding application stack.
+
+Overall, the implemented deployment transforms the hybrid retrieval system from a set of individual pipelines into a usable backend service. The final system is therefore not only a prototype of summarization, RAG, and search techniques, but an operational retrieval server implementation whose core interfaces and processing paths are already in place, making integration into Meadow9+ achievable with relatively small deployment-specific changes rather than a fundamental redesign.
+
+\section{Prototype Flutter Client}
+In addition to the backend retrieval server, a prototype Flutter client was also implemented to exercise the new retrieval capabilities through a mobile-oriented user interface. This frontend work is not a primary contribution of the project and remains technically outside the formal scope of the retrieval-system implementation. It is nevertheless useful to mention briefly because it demonstrates that the deployed backend interfaces can already support an end-to-end application workflow.
+
+The prototype client exposes the three main user-facing interaction modes introduced in this project. The summary view presents the generated meeting summary in a structured form rather than as one block of plain text, making the output easier to scan and navigate. The Ask AI view surfaces the number of retrieved sources used to answer a question and allows users to expand those supporting chunks, directly operationalizing the transparency and confidence goals discussed earlier in this chapter. The global search view integrates the keyword-based transcript search workflow, showing that the same backend can also support direct retrieval-oriented interaction outside the chatbot interface.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.0\textwidth]{rag_system_message_template_defining_assistant_role_and_constraints.png}
-  \caption{RAG system message template defining assistant role and constraints}
-  \label{fig:fig42a}
+  \includegraphics[width=1.0\textwidth]{figures/flutter_client_screenshots.png}
+  \caption{Prototype Flutter client screenshots showing the structured summary tab, Ask AI tab with expandable retrieved sources, and global keyword search interface}
+  \label{fig:flutter-client-prototype}
 \end{figure}
-
-The grounding instruction ("Use these excerpts to answer the user's questions") explicitly directs the LLM to base its responses on the provided context rather than relying solely on parametric knowledge. The transparency instruction ("If the answer cannot be found in the provided excerpts, say so clearly") encourages the LLM to admit when it lacks sufficient information, reducing the risk of plausible but incorrect answers. The hallucination prevention directive ("Do not make up information not present in the excerpts") reinforces these constraints, explicitly forbidding fabrication. This combination of positive instructions (what to do) and negative constraints (what not to do) has proven effective in reducing hallucination rates in empirical testing.
-
-\textbf{Multi-Turn Chat Prompt Construction}
-
-Figure \ref{fig:fig42c} shows how the system message and human message templates are combined with a chat history placeholder to create a complete multi-turn conversation prompt. The ChatPromptTemplate.from\_messages method constructs a prompt with three components: (1) the system message containing the role definition and context, (2) a placeholder for previous conversation turns, and (3) the current human message with the user's question.\cite{langchain_chatprompt,langchain_messages_placeholder}
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{complete_rag_chat_prompt_construction_with_history_support.png}
-  \caption{Complete RAG chat prompt construction with history support}
-  \label{fig:fig42c}
-\end{figure}
-
-The chat history placeholder enables multi-turn interactions where the LLM can reference previous questions and answers when responding to follow-up queries. For example, if the user asks "What is the project timeline?" followed by "Who is responsible for Phase 2?", the LLM can interpret "Phase 2" in the context of the earlier question about the timeline. This capability is essential for natural conversational interactions, as it eliminates the need for users to repeat context with each query.
-
-\textbf{Chat History Structure}
-
-Figure \ref{fig:fig42d} illustrates how chat history is structured using LangChain's message types. Each conversation turn is represented as a HumanMessage (user input) or AIMessage (assistant response), and these messages are accumulated in a list that is injected into the chat\_history placeholder.\cite{langchain_messages_placeholder} The LLM receives the entire conversation history along with the current question, enabling it to maintain context across multiple turns. This approach supports pronouns, follow-up questions, and clarifications that reference earlier parts of the conversation.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{chat_history_structure_for_multi_turn_conversation_support.png}
-  \caption{Chat history structure for multi-turn conversation support}
-  \label{fig:fig42d}
-\end{figure}
-
-The chat history is reset when the user starts a new conversation or switches to a different transcript, ensuring that context from unrelated queries does not leak into subsequent interactions. The system limits history length to the most recent N turns (e.g., last 5 exchanges) to prevent the prompt from exceeding the LLM's context window, though this constraint is rarely reached in practice given the short length of typical question-answer pairs.
-
-\textbf{Streaming Response Handling}
-
-Figure \ref{fig:fig43d} demonstrates streaming invocation using the chain.stream method. Instead of returning a single string containing the complete response, the stream method returns a generator that yields tokens incrementally as they are produced by the LLM. This enables real-time display in chat interfaces, where each token is printed immediately upon arrival.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.0\textwidth]{streaming_response_handling_for_real_time_token_display.png}
-  \caption{Streaming response handling for real-time token display}
-  \label{fig:fig43d}
-\end{figure}
-
-Streaming mode does not reduce total generation time. The LLM still takes the same amount of time to produce the full response, but it significantly improves perceived responsiveness from the user's perspective. Users see the first tokens quickly, providing immediate feedback that the system is working.
-
-\section{Stretch Goals and Deployment}
-This section will be completed in the final report, once everything has been finalized.

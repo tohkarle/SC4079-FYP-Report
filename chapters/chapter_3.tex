@@ -3,7 +3,7 @@
 \section{System Overview}
 The proposed system extends the Meadow9+ transcript assistant from a chatbot-centric design into a hybrid retrieval system. Instead of relying on a single interaction mode that faces scalability and latency limitations, the redesigned system supports three complementary capabilities over the same transcript corpus: a summarization pipeline for high-level transcript understanding, a retrieval-augmented generation (RAG) pipeline for conversational question answering, and a keyword-based search interface for direct snippet retrieval.\cite{gao2024retrieval}
 
-To minimise disruption to the existing Meadow9+ infrastructure, the new retrieval system is deployed as a separate retrieval server that interacts with the current Meadow9+ backend server. This separation reduces the extent of modifications required on the production backend, while enabling the possibility of controlled A/B testing in production to compare the performance of the existing chatbot approach against the new retrieval pipeline proposed in this project.
+To minimise disruption to the existing Meadow9+ infrastructure, the new hybrid retrieval system is deployed as a separate retrieval server that interacts with the current Meadow9+ backend server. This separation reduces the extent of modifications required on the production backend, while enabling the possibility of controlled A/B testing in production to compare the performance of the existing chatbot approach against the new proposed system in this project.
 
 At a high level, the system operates in two distinct phases: an indexing phase and a querying phase.
 
