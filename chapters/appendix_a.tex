@@ -289,7 +289,9 @@ After reranking, the selected chunks are converted into a structured context str
   \label{fig:fig40d}
 \end{figure}
 
-The prompt layer combines system instructions, retrieved context, optional chat history, and the current user question. For broad or ambiguous requests, the same prompt-construction path can also inject summary-derived transcript framing before answer generation.\cite{langchain_prompts,langchain_chatprompt,langchain_messages_placeholder}
+Prompt construction begins with a lightweight intent-detection step that classifies the query as \texttt{specific}, \texttt{thematic}, or \texttt{global}, and maps low-confidence cases to a fallback \texttt{hybrid} route. This classifier is implemented as a rule-based scorer: it normalises the query, checks for indicative phrases and patterns associated with detailed factual questions, thematic questions, and transcript-wide summary requests, and then compares the top two scores to derive a confidence value for routing. This routing decision selects one of four prompt-construction paths: \texttt{fine\_grained\_path}, \texttt{topic\_path}, \texttt{summary\_path}, or \texttt{hybrid\_path}. The selected path changes both retrieval configuration and final prompt packing, so the assembled prompt can include route-specific instructions, transcript summaries, forced transcript anchors, retrieved support chunks, optional chat history, and the current user question.\cite{langchain_prompts,langchain_chatprompt,langchain_messages_placeholder}
+
+In the current implementation, transcript-summary and anchor injection are not generic optional additions for all broad requests. They are activated specifically in the frame-aware \texttt{summary\_path} and \texttt{hybrid\_path}, which combine transcript-level framing with supporting evidence chunks. By contrast, \texttt{fine\_grained\_path} remains detail-oriented and local, while \texttt{topic\_path} has its own retrieval profile but still relies on standard retrieved-chunk assembly rather than the fuller frame-aware packing used by \texttt{summary\_path} and \texttt{hybrid\_path}.
 
 \begin{figure}[H]
   \centering
